@@ -35,7 +35,7 @@ class BaseMicroscope(object):
         self.instrument_vendor = 'generic'
         self.data_source = 'None' #enable people to provide it, generate it or use pre-acquired existing data
         self.instrument_type = 'generic' #could be STEM, STM, AFM
-        self.log = []] #microscope should have a log
+        self.log = [] #microscope should have a log
 
     def setup_microscope(self):
         ###e.g., generate the data if required at this step
