@@ -63,6 +63,4 @@ if __name__== "__main__":
     mic = STEM()
     mic.setup_microscope("/Users/utkarshpratiush/project/DTMicroscope/DTMicroscope/server/test.h5")
     print(mic.get_overview_image())
-    pdb.set_trace()
-    os.remove("test.h5")
     
