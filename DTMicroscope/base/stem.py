@@ -55,6 +55,7 @@ class STEM(BaseMicroscope):
     def get_acceleration_voltage(self):
         return 200
         
+        
     
     
     
