@@ -37,6 +37,7 @@ class BaseMicroscope(object):
         self.instrument_type = 'generic' #could be STEM, STM, AFM
         self.log = []] #microscope should have a log
 
+    
 
     def _parse_dataset(self):
         """
@@ -48,12 +49,15 @@ class BaseMicroscope(object):
         #in original_metadata, have a key for 'UID' and a key for 'associated-image' (the latter will only be for spectroscopic)
         #or also have 'associated-spec' to refer to associated spectroscopic files
         #When we read through the metadata we can immediately identify the available spectroscopic exps.
+
+        In fact the rest of this function coudl be moved into 'process datasets' to assemble the combined ones...
         
 
         This method creates three dictionaries to store indices for the different types of data:
         - `_im_ind`: stores indices for IMAGE data.
         - `_sp_ind`: stores indices for SPECTRUM data.
         - `_pc_ind`: stores indices for POINT_CLOUD data.
+        - `_si_ind`: stores indices for SPECTRAL_IMAGE data. 
 
         It compiles the image data into a numpy array (`scan_ar`), extracts spatial coordinates from the first
         image dataset, and places the scanning tip at the center of the scan.
