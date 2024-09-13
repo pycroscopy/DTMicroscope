@@ -7,8 +7,11 @@ import Pyro5.api
 if __name__== "__main__":
     uri = "PYRO:microscope.server@localhost:9091"
     mic_server = Pyro5.api.Proxy(uri)
-    mic_server.activate_microscope("STEM")
-    mic_server.setup_microscope()
+    mic_server.initialize_microscope("STEM")
+    mic_server.register_data("data/test_stem.h5")
+    # setup mic --> should return a help file about attributes and methods--->-- .help()
+    # eg: get overview image is channel 0
+    # say dataset 1 is 4dstem and dataset 2 is eels-si --> for dataset 2 it says I cant to 4dstem but I do eels 
     array_list, shape, dtype = mic_server.get_overview_image()
     im_array = np.array(array_list, dtype=dtype).reshape(shape)
     plt.imshow(im_array)

@@ -22,7 +22,7 @@ class STEM(BaseMicroscope):
         ###e.g., generate the data if required at this step
         reader = SciFiReaders.NSIDReader(data_source)
         self.datasets = reader.read()
-        return
+        return None
 
     def get_overview_image(self, index_of_image = 0):
         return np.array(self.datasets[index_of_image])
@@ -31,8 +31,9 @@ class STEM(BaseMicroscope):
 
     def get_spectrum_image(self, index_of_SI = 1):
         return np.array(self.datasets[index_of_SI])
-    
-    def get_point_data(self, spectrum_image_index, x, y):
+
+
+    def get_point_data(self, spectrum_image_index, x, y, **args):
         """emulates the data acquisition at a specific point
 
         Args:

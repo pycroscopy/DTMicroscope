@@ -7,10 +7,10 @@ from DTMicroscope.base.dummy_mic import DummyMicroscope
 from DTMicroscope.base.stem import STEM
 
 ## we can download all the data the moment server starts
-import gdown
-file_id = "1V9YPIRi4OLMBagXxT9s9Se4UJ-8oF3_q"# 
-direct_url = f"https://drive.google.com/uc?id={file_id}"
-gdown.download(direct_url, "test.h5", quiet=False)
+# import gdown
+# file_id = "1V9YPIRi4OLMBagXxT9s9Se4UJ-8oF3_q"# 
+# direct_url = f"https://drive.google.com/uc?id={file_id}"
+# gdown.download(direct_url, "test.h5", quiet=False)
 
 
 def serialize_array(array):
@@ -30,9 +30,12 @@ def serialize_array(array):
 @Pyro5.api.expose
 class MicroscopeServer(object):
     """Wrapper class for the microscope object
+    
+    >>>
+    >>>
     """
     
-    def activate_microscope(self, microscope = "dummy"):
+    def initialize_microscope(self, microscope = "dummy"):
         if microscope == "dummy":
             self.microscope = DummyMicroscope()
         
@@ -44,7 +47,7 @@ class MicroscopeServer(object):
          
         pass
     
-    def setup_microscope(self, data_source = 'test.h5'):
+    def register_data(self, data_source = 'test.h5'):
         self.microscope.setup_microscope(data_source)
         pass
     
