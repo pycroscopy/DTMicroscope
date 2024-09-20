@@ -48,7 +48,16 @@ class MicroscopeServer(object):
         pass
     
     def register_data(self, data_source = 'test.h5'):
-        self.microscope.setup_microscope(data_source)
+        """
+        Given path to the data, loads the data and registers it with the microscope object
+        prints the dataset info which includes the channels, units, etc.
+        dataset_info useful for querying the data
+        """
+        
+        self.microscope._load_dataset(data_source)
+        self.microscope._parse_dataset()
+        dataset_info = self.microscope.get_dataset_info()
+        print(dataset_info)
         pass
     
     def get_overview_image(self):
