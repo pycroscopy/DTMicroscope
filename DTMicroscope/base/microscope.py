@@ -47,14 +47,17 @@ def logger(func):
 
 class BaseMicroscope(object):
 
-    def __init__(self) -> None:
+    def __init__(self,data_path = None) -> None:
         self.name = 'Base Microscope'
         self.instrument_vendor = 'generic'
         self.data_source = 'None' #enable people to provide it, generate it or use pre-acquired existing data
         self.instrument_type = 'generic' #could be STEM, STM, AFM
         self.log = []] #microscope should have a log
         self.latency = 0 #if nonzero then the microscope will use this value for the latency when generating outputs
-        self.data_path = None
+        self.data_dict = {}
+        self.data_path = data_path
+        if self.data_path is not None:
+            self._sort_datasets() #will put results into self.data_dict
 
     def _sort_datasets(self):
         """
