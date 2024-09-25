@@ -5,6 +5,21 @@ This should be the base class from which all the other microscopes are built fro
 
 """
 
+"""
+**A note about the requirements for data files
+Each sidpy dataset should be identified with a uuid, in the original_metadata:
+
+import uuid
+original_metadata['uuid'] = str(uuid.uuid4())
+
+Additionally, if you have images and spectra that are linked, you must use
+original_metadata['associated-image'] = uuid_image
+and
+original_metadata['associated-spec'] = uuid_spec
+This way you can save multiple datasets to a single h5 file and load them into DTMicroscope
+
+"""
+
 import inspect
 import SciFiReaders as sr
 import numpy as np
@@ -43,9 +58,9 @@ class BaseMicroscope(object):
 
     def _sort_datasets(self):
         """
-        Given the dataset file, we need to parse it to determine which files belong together to be grouped as compound datasets
+        Given the file path, we need to parse it to determine which files belong together to be grouped as compound datasets
         These are datasets for which images have associated spectra, for instance.
-        Returns: - Dictionary of compound and singular datasets
+        Returns: - (None): Sets the data dictionary (self.data_dict)
         """
         
         reader = sr.NSIDReader(self.data_path)
@@ -65,8 +80,9 @@ class BaseMicroscope(object):
         all_datasets['Single_Datasets'] = {}
         for ind,ds in enumerate(single_dsets):
             all_datasets['Single_Datasets']['Single_Dataset_'+str(ind)] = ds
-    
-        return all_datasets
+        self.data_dict = all_datasets
+
+        return 
     
     def _get_dataset_by_uid(self, uid_list, dataset_list):
         """
