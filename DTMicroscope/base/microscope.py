@@ -6,6 +6,8 @@ This should be the base class from which all the other microscopes are built fro
 """
 
 import inspect
+import SciFiReaders as sr
+import numpy as np
 
 def logger(func):
     """Although the following wrapper should technically work 
@@ -36,8 +38,88 @@ class BaseMicroscope(object):
         self.data_source = 'None' #enable people to provide it, generate it or use pre-acquired existing data
         self.instrument_type = 'generic' #could be STEM, STM, AFM
         self.log = []] #microscope should have a log
+        self.latency = 0 #if nonzero then the microscope will use this value for the latency when generating outputs
+        self.data_path = None
 
+    def _sort_datasets(self):
+        """
+        Given the dataset file, we need to parse it to determine which files belong together to be grouped as compound datasets
+        These are datasets for which images have associated spectra, for instance.
+        Returns: - Dictionary of compound and singular datasets
+        """
+        
+        reader = sr.NSIDReader(self.data_path)
+        datasets = reader.read()
+
+        grouped_dsets = []
+        single_dsets = []
+        for dataset in datasets:
+            if 'associated-image' in dataset.original_metadata.keys() or 'associated-spec' in dataset.original_metadata.keys():
+                grouped_dsets.append(dataset)
+            else:
+                single_dsets.append(dataset)
+
+        all_datasets = {}
+        all_datasets['Compound_Datasets'] = self._find_linked_datasets(grouped_dsets)
+        #add the single datasets
+        all_datasets['Single_Datasets'] = {}
+        for ind,ds in enumerate(single_dsets):
+            all_datasets['Single_Datasets']['Single_Dataset_'+str(ind)] = ds
     
+        return all_datasets
+    
+    def _get_dataset_by_uid(self, uid_list, dataset_list):
+        """
+        Input:
+            - uid_list (type: str or list of str): list of uuids
+            - dataset_list: list of sidpy datasets
+        Returns:
+            - datasets (list): list of datasets matching the given uids.
+        """
+        returned_datasets = []
+        for ds in dataset_list:
+            if type(uid_list)==np.ndarray:
+                for uid in uid_list:
+                    if ds.original_metadata['uuid']==uid:
+                        returned_datasets.append(ds)
+            else:
+                if ds.original_metadata['uuid']==uid_list:
+                        returned_datasets.append(ds)
+               
+        return returned_datasets
+    
+    def _find_linked_datasets(self, dataset_list):
+    
+        linked_datasets = {}
+        
+        # Initialize a counter to name the linked dataset groups
+        counter = 1
+        uids_linked = []
+        for dataset in dataset_list:
+            # Extract the associated dataset from metadata if it exists
+            associated_spec = None
+            associated_image = None
+
+            #At this point we just want to go to each spectroscopic dataset and link any image dataset
+            if 'associated-image' in dataset.original_metadata.keys():
+                associated_image = dataset.original_metadata['associated-image']
+                uids_linked.append([dataset.original_metadata['uuid'], associated_image])
+                print('associated image is {}'.format(associated_image))
+        
+        linked_dset = {}
+        for uids in uids_linked:
+            spec_dataset = self.get_dataset_by_uid(uids[0], dataset_list)
+            image_dataset = self.get_dataset_by_uid(uids[1], dataset_list)
+            
+            for ind,dset in enumerate(spec_dataset):            
+                linked_dset['spectral_dataset_'+str(ind)] = dset
+            for ind,dset in enumerate(image_dataset):            
+                linked_dset['image_dataset_'+str(ind)] = dset
+                
+            linked_datasets['Compound_Dataset_' + str(counter)] = linked_dset
+            counter +=1
+        
+        return linked_datasets
 
     def _parse_dataset(self):
         """
