@@ -52,7 +52,7 @@ class BaseMicroscope(object):
         self.instrument_vendor = 'generic'
         self.data_source = 'None' #enable people to provide it, generate it or use pre-acquired existing data
         self.instrument_type = 'generic' #could be STEM, STM, AFM
-        self.log = []] #microscope should have a log
+        self.log = [] #microscope should have a log
         self.latency = 0 #if nonzero then the microscope will use this value for the latency when generating outputs
         self.data_dict = {}
         self.data_path = data_path
@@ -71,11 +71,11 @@ class BaseMicroscope(object):
 
         grouped_dsets = []
         single_dsets = []
-        for dataset in datasets:
-            if 'associated-image' in dataset.original_metadata.keys() or 'associated-spec' in dataset.original_metadata.keys():
-                grouped_dsets.append(dataset)
+        for key in datasets:
+            if 'associated-image' in datasets[key].original_metadata.keys() or 'associated-spec' in datasets[key].original_metadata.keys():
+                grouped_dsets.append(datasets[key])
             else:
-                single_dsets.append(dataset)
+                single_dsets.append(datasets[key])
 
         all_datasets = {}
         all_datasets['Compound_Datasets'] = self._find_linked_datasets(grouped_dsets)
@@ -127,8 +127,8 @@ class BaseMicroscope(object):
         
         linked_dset = {}
         for uids in uids_linked:
-            spec_dataset = self.get_dataset_by_uid(uids[0], dataset_list)
-            image_dataset = self.get_dataset_by_uid(uids[1], dataset_list)
+            spec_dataset = self._get_dataset_by_uid(uids[0], dataset_list)
+            image_dataset = self._get_dataset_by_uid(uids[1], dataset_list)
             
             for ind,dset in enumerate(spec_dataset):            
                 linked_dset['spectral_dataset_'+str(ind)] = dset
@@ -140,7 +140,7 @@ class BaseMicroscope(object):
         
         return linked_datasets
 
-    def _parse_dataset(self):
+    def _parse_dataset(self, key):
         """
         Parses the dataset to identify and index different data types (IMAGE, SPECTRUM, POINT_CLOUD),
         and processes the scan data accordingly.
