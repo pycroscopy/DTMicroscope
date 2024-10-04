@@ -1,7 +1,9 @@
 import numpy as np
 from microscope import *
+from afm_artefacts import *
 from SciFiReaders import NSIDReader
 import sidpy as sd
+import time
 class AFM_Microscope(BaseMicroscope):
     """
     A class representing an Atomic Force Microscope (AFM) used for simulating data generation
@@ -76,8 +78,8 @@ class AFM_Microscope(BaseMicroscope):
             Uses Bresenham's algorithm to compute the pixel coordinates along a straight line between two points.
     """
 
-    def __init__(self, ):
-        super().__init__()
+    def __init__(self, data_path = None):
+        super().__init__(data_path =data_path)
         self.name = 'AFM Microscope'
         self.instrument_vendor = 'generic'
         self.instrument_type = 'AFM'
@@ -95,14 +97,13 @@ class AFM_Microscope(BaseMicroscope):
             pass
             #self.data = self._generate_synthetic_data(gen_params)
 
-        elif self.data_source != 'generate':
+        elif self.data_source in self.data_dict['Compound_Datasets']:
             # Load pre-existing data
-            try:
-                self._load_data()
-            except:
-                raise ValueError("Unsupported data_source. Please specify the path to the pre-acquired dataset"
-                                 "or use generate to generate an artifitial dataset")
-            self._parse_dataset()
+            self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source])
+
+        elif self.data_source in self.data_dict['Single_Datasets']:
+            # Load pre-existing data
+            self.process_dataset(dset = self.data_dict['Single_Datasets'][self.data_source])
 
         #return [self._images_keys, self._spectra_keys, self._point_cloud_keys]
 
@@ -110,15 +111,15 @@ class AFM_Microscope(BaseMicroscope):
         dataset = None
         return dataset
 
-    def _load_data(self):
-        '''
-        Load pre-acquired dataset
-        '''
-        reader = NSIDReader(self.data_source)
-        self.dataset = reader.read()
-        reader.close()
+    # def _load_data(self):
+    #     '''
+    #     Load pre-acquired dataset
+    #     '''
+    #     reader = NSIDReader(self.data_source)
+    #     self.dataset = reader.read()
+    #     reader.close()
 
-    def _parse_dataset(self):
+    def process_dataset(self, dset):
         """
         Parses the dataset to identify and index different data types (IMAGE, SPECTRUM, POINT_CLOUD),
         and processes the scan data accordingly.
@@ -141,7 +142,7 @@ class AFM_Microscope(BaseMicroscope):
             self.x (float): x-coordinate of the scanning tip, placed at the center of the scan.
             self.y (float): y-coordinate of the scanning tip, placed at the center of the scan.
         """
-
+        self.dataset = dset
         _keys = list(self.dataset.keys())
         #index dict
         self._im_ind, self._sp_ind, self._pc_ind = {}, {}, {}
@@ -152,8 +153,8 @@ class AFM_Microscope(BaseMicroscope):
 
             # Store indices and data based on the data type
             if data_type == sd.DataType['IMAGE']:
-                self._im_ind[key] = i
                 self.scan_ar.append(value.compute())
+                self._im_ind[key] = len(self.scan_ar)-1
             elif data_type == sd.DataType['SPECTRUM']:
                 self._sp_ind[key] = i
             elif data_type == sd.DataType['POINT_CLOUD']:
@@ -191,7 +192,7 @@ class AFM_Microscope(BaseMicroscope):
         ]
         return info_list
 
-    def get_scan(self, channels = None):
+    def get_scan(self, channels = None, modification=None, ):
         """
             Retrieves scan data from the dataset, optionally filtered by specific channels.
 
@@ -234,10 +235,20 @@ class AFM_Microscope(BaseMicroscope):
                 raise ValueError('No valid channels were found to return data.')
 
         # Return the filtered scan data based on the valid indices
-        return self.scan_ar[ind_list]
+        if modification is None:
+            return self.scan_ar[ind_list]
 
+        elif type(modification) is list:
+            for eff_dict in modification:
+                if type(eff_dict) is dict:
+                    kwargs = eff_dict['kwargs']
+                    modified_scan = np.array([scanning(ar,
+                                                       eff_dict['effect'](**kwargs)) for ar in self.scan_ar[ind_list]])
+                    return modified_scan
+                else:
+                    raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
-    def scanning_emulator(self, direction='horizontal', channels=None,):
+    def scanning_emulator(self, direction='horizontal', channels=None, scanning_rate=None):
         """
         Emulates a scanning process over the data, either horizontally or vertically, yielding slices of scan data.
 
@@ -257,6 +268,8 @@ class AFM_Microscope(BaseMicroscope):
         if direction == 'horizontal':
             l = _ar_data.shape[1]
             for i in range(l):
+                if scanning_rate is not None:
+                    time.sleep(1/scanning_rate)
                 yield _ar_data[:, i, :]
 
         # Vertical scanning: iterate over the third axis (axis 2)
@@ -290,7 +303,7 @@ class AFM_Microscope(BaseMicroscope):
         self.y = max(self.y_coords.min(), min(y, self.y_coords.max()))
         return True
 
-    def scan_individual_line(self, direction='horizontal', coord=0, channels=None,):
+    def scan_individual_line(self, direction='horizontal', coord=0, channels=None):
         """
         Extracts a specific line of data from the scan array, either horizontally or vertically,
         based on the given coordinate and direction.
