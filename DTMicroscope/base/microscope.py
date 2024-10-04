@@ -82,7 +82,7 @@ class BaseMicroscope(object):
         #add the single datasets
         all_datasets['Single_Datasets'] = {}
         for ind,ds in enumerate(single_dsets):
-            all_datasets['Single_Datasets']['Single_Dataset_'+str(ind)] = ds
+            all_datasets['Single_Datasets']['Single_Dataset_'+str(ind)] = {'0':ds}
         self.data_dict = all_datasets
 
         return 
@@ -199,8 +199,14 @@ class BaseMicroscope(object):
 
         #write spacial coordinates
         first_im_ind = next(iter(self._im_ind))
-        self.x_coords = self.dataset[first_im_ind].x.values
-        self.y_coords = self.dataset[first_im_ind].y.values
+        try:
+            self.x_coords = self.dataset[first_im_ind].x.values
+            self.y_coords = self.dataset[first_im_ind].y.values
+        except:
+            print("You don't have any x and y coordinates! Using defaults")
+            self.x_coords = np.linspace(0,1,self.dataset[first_im_ind].shape[0])
+            self.y_coords =  np.linspace(0,1,self.dataset[first_im_ind].shape[1])
+            
 
         self.x_min, self.x_max = self.x_coords.min(), self.x_coords.max()
         self.y_min, self.y_max = self.y_coords.min(), self.y_coords.max()
