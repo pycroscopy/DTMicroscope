@@ -248,7 +248,8 @@ class AFM_Microscope(BaseMicroscope):
                 else:
                     raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
-    def scanning_emulator(self, direction='horizontal', channels=None, scanning_rate=None):
+    def scanning_emulator(self, direction='horizontal', channels=None, scanning_rate=None,
+                          modification=None):
         """
         Emulates a scanning process over the data, either horizontally or vertically, yielding slices of scan data.
 
@@ -262,7 +263,7 @@ class AFM_Microscope(BaseMicroscope):
         """
 
         # Get the scan data from the provided channels
-        _ar_data = self.get_scan(channels)
+        _ar_data = self.get_scan(channels, modification=modification)
 
         # Horizontal scanning: iterate over the second axis (axis 1)
         if direction == 'horizontal':
@@ -303,7 +304,8 @@ class AFM_Microscope(BaseMicroscope):
         self.y = max(self.y_coords.min(), min(y, self.y_coords.max()))
         return True
 
-    def scan_individual_line(self, direction='horizontal', coord=0, channels=None):
+    def scan_individual_line(self, direction='horizontal', coord=0, channels=None,
+                             modification=None):
         """
         Extracts a specific line of data from the scan array, either horizontally or vertically,
         based on the given coordinate and direction.
@@ -319,14 +321,14 @@ class AFM_Microscope(BaseMicroscope):
             numpy.ndarray: A 2D slice (channels, line) of the scan data along the specified line.
         """
 
-        _scan_ar = self.get_scan(channels = channels)
+        _scan_ar = self.get_scan(channels=channels, modification=modification)
         if direction == 'horizontal':
-            self.go_to(x = self.x_coords.min(), y = coord)
+            self.go_to(x = self.x_coords.min(), y=coord)
             _ind = np.argmin(np.abs(self.y_coords - coord))
             _line_ar = _scan_ar[:,_ind,:]
 
         elif direction == 'vertical':
-            self.go_to(x = coord, y = self.y_coords.max())
+            self.go_to(x=coord, y=self.y_coords.max())
             _ind = np.argmin(np.abs(self.x_coords - coord))
             _line_ar = _scan_ar[:,:,_ind]
 
@@ -335,7 +337,7 @@ class AFM_Microscope(BaseMicroscope):
 
         return _line_ar
 
-    def scan_arbitrary_path(self, path_points, channels=None):
+    def scan_arbitrary_path(self, path_points, channels=None, modification=None):
         """
             Scans the data along an arbitrary path defined by real-world coordinates and returns the corresponding
             scan values. The function corrects any out-of-range coordinates by clamping them to the closest valid points.
@@ -360,7 +362,7 @@ class AFM_Microscope(BaseMicroscope):
             raise ValueError("path_points must have shape (N, 2), where N > 1 is the number of points.")
 
         # Get the scan array with selected channels
-        _scan_ar = self.get_scan(channels=channels)
+        _scan_ar = self.get_scan(channels=channels, modification=modification)
 
         # Copy and correct out-of-range coordinates
         corrected_path_points = np.copy(path_points)
@@ -393,7 +395,7 @@ class AFM_Microscope(BaseMicroscope):
         path_pixel_coords = np.array(path_pixel_coords).astype(int)
 
         # Return the scan data along the calculated path
-        return _scan_ar[:, path_pixel_coords[:, 1], path_pixel_coords[:, 0]]
+        return _scan_ar[:, path_pixel_coords[:, 0], path_pixel_coords[:, 1]]
 
     def get_spectrum(self, location=None, channel=None):
         """

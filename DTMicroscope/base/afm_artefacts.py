@@ -29,7 +29,32 @@ def real_tip(**kwargs): #TODO how to align it with the real dataset?
     return gaussian1
 
 def tip_doubling(**kwargs):
-    pass
+    if 'r_tip' in kwargs:
+        if type(kwargs['r_tip']) not in [list, np.array]:
+            raise TypeError('The r_tip must be list for the tip_doubling artefact')
+        r_tip = kwargs['r_tip']
+
+    if 'center' in kwargs:
+        center = kwargs['center']
+    else:
+        center = np.random.rand(len(r_tip), 2)
+
+    if 'length_coef' in kwargs:
+        lc = kwargs['length_coef']
+    else:
+        lc = np.ones(len(r_tip))
+
+    gaus = None
+    for i in range(len(r_tip)):
+        kwargs = {'r_tip': r_tip[i],
+                  'center': center[i],
+                  }
+        if isinstance(gaus, np.ndarray):
+            gaus = gaus + real_tip(**kwargs) * lc[i]
+        else:
+            gaus = real_tip(**kwargs) * lc[i]
+
+    return gaus / np.sum(lc)
 
 @jit(nopython=True, parallel=True)
 def pad_image(image, pad_height, pad_width):
