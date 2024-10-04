@@ -72,7 +72,7 @@ class BaseMicroscope(object):
         grouped_dsets = []
         single_dsets = []
         for key in datasets:
-            if 'associated-image' in datasets[key].original_metadata.keys() or 'associated-spec' in datasets[key].original_metadata.keys():
+            if ('associated-image' in datasets[key].original_metadata.keys()) or ('associated-spec' in datasets[key].original_metadata.keys()):
                 grouped_dsets.append(datasets[key])
             else:
                 single_dsets.append(datasets[key])
@@ -98,7 +98,7 @@ class BaseMicroscope(object):
         returned_datasets = []
         for ds in dataset_list:
             if type(uid_list)==np.ndarray:
-                for uid in uid_list:
+                for uid in uid_list.astype(str):
                     if ds.original_metadata['uuid']==uid:
                         returned_datasets.append(ds)
             else:
@@ -124,12 +124,10 @@ class BaseMicroscope(object):
                 associated_image = dataset.original_metadata['associated-image']
                 uids_linked.append([dataset.original_metadata['uuid'], associated_image])
                 print('associated image is {}'.format(associated_image))
-        
         linked_dset = {}
         for uids in uids_linked:
             spec_dataset = self._get_dataset_by_uid(uids[0], dataset_list)
             image_dataset = self._get_dataset_by_uid(uids[1], dataset_list)
-            
             for ind,dset in enumerate(spec_dataset):            
                 linked_dset['spectral_dataset_'+str(ind)] = dset
             for ind,dset in enumerate(image_dataset):            
