@@ -1,6 +1,6 @@
 import numpy as np
-from .microscope import *
-from .afm_artefacts import *
+from DTMicroscope.base.microscope import *
+from DTMicroscope.base.afm_artefacts import *
 from SciFiReaders import NSIDReader
 import sidpy as sd
 import time
