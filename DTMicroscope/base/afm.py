@@ -1,6 +1,6 @@
 import numpy as np
-from microscope import *
-from afm_artefacts import *
+from .microscope import *
+from .afm_artefacts import *
 from SciFiReaders import NSIDReader
 import sidpy as sd
 import time
@@ -170,8 +170,15 @@ class AFM_Microscope(BaseMicroscope):
 
         #write spacial coordinates
         first_im_ind = next(iter(self._im_ind))
-        self.x_coords = self.dataset[first_im_ind].x.values
-        self.y_coords = self.dataset[first_im_ind].y.values
+        try:
+            self.x_coords = self.dataset[first_im_ind].x.values
+            self.y_coords = self.dataset[first_im_ind].y.values
+       
+        except:
+            print("You don't have any x and y coordinates! Using defaults")
+            self.x_coords = np.linspace(0,1,self.dataset[first_im_ind].shape[0])
+            self.y_coords =  np.linspace(0,1,self.dataset[first_im_ind].shape[1])
+            
 
         self.x_min, self.x_max = self.x_coords.min(), self.x_coords.max()
         self.y_min, self.y_max = self.y_coords.min(), self.y_coords.max()
