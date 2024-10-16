@@ -85,6 +85,9 @@ class AFM_Microscope(BaseMicroscope):
         self.instrument_type = 'AFM'
         self.data_source = None
 
+        #specify data acquisition rate for PI emulation
+        self.sample_rate = 2000 #Hz
+
     def setup_microscope(self, data_source='generate'):
         """
         Initializes the microscope setup by either generating synthetic data or loading pre-existing data.
@@ -95,8 +98,6 @@ class AFM_Microscope(BaseMicroscope):
         self.data_source = data_source
         if self.data_source == 'generate':
             pass
-            #self.data = self._generate_synthetic_data(gen_params)
-
         elif self.data_source in self.data_dict['Compound_Datasets']:
             # Load pre-existing data
             self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source])
@@ -110,14 +111,6 @@ class AFM_Microscope(BaseMicroscope):
     def _generate_synthetic_data(self, grid_size, noise_level):
         dataset = None
         return dataset
-
-    # def _load_data(self):
-    #     '''
-    #     Load pre-acquired dataset
-    #     '''
-    #     reader = NSIDReader(self.data_source)
-    #     self.dataset = reader.read()
-    #     reader.close()
 
     def process_dataset(self, dset):
         """
@@ -199,7 +192,7 @@ class AFM_Microscope(BaseMicroscope):
         ]
         return info_list
 
-    def get_scan(self, channels = None, modification=None, ):
+    def get_scan(self, channels = None, modification=None, scan_rate = 0.5):
         """
             Retrieves scan data from the dataset, optionally filtered by specific channels.
 
@@ -225,7 +218,6 @@ class AFM_Microscope(BaseMicroscope):
         _quantity = [self.dataset[k].quantity for k in self._im_ind]
 
         for ch in channels:
-            print(ch)
             # Check if the channel exists in _im_ind (by key)
             if ch in self._im_ind:
                 ind_list.append(self._im_ind[ch])
@@ -246,16 +238,26 @@ class AFM_Microscope(BaseMicroscope):
             return self.scan_ar[ind_list]
 
         elif type(modification) is list:
+            current_scan = self.scan_ar[ind_list]
             for eff_dict in modification:
                 if type(eff_dict) is dict:
                     kwargs = eff_dict['kwargs']
-                    modified_scan = np.array([scanning(ar,
-                                                       eff_dict['effect'](**kwargs)) for ar in self.scan_ar[ind_list]])
-                    return modified_scan
+                    if eff_dict['effect'] != 'real_PID':
+                        modified_scan = np.array([scanning(ar,
+                                                           eff_dict['effect'](**kwargs)) for ar in current_scan])
+                        current_scan = modified_scan
+                    else:
+                        kwargs = eff_dict['kwargs']
+                        kwargs['scan_rate'] = scan_rate
+                        kwargs['sample_rate'] = float(kwargs.get('sample_rate', self.sample_rate))
+                        modified_scan = np.array([real_PI(ar, **kwargs) for ar in current_scan])
+                        current_scan = modified_scan
+
+                    return current_scan
                 else:
                     raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
-    def scanning_emulator(self, direction='horizontal', channels=None, scanning_rate=None,
+    def scanning_emulator(self, direction='horizontal', channels=None, scan_rate=None,
                           modification=None):
         """
         Emulates a scanning process over the data, either horizontally or vertically, yielding slices of scan data.
@@ -268,16 +270,17 @@ class AFM_Microscope(BaseMicroscope):
         Yields:
             numpy.ndarray: A 2D slice of the scan data for each step of the emulated scan.
         """
-
+        if scan_rate == None:
+            scan_rate = 0.5
         # Get the scan data from the provided channels
-        _ar_data = self.get_scan(channels, modification=modification)
+        _ar_data = self.get_scan(channels, scan_rate=scan_rate, modification=modification)
 
         # Horizontal scanning: iterate over the second axis (axis 1)
         if direction == 'horizontal':
             l = _ar_data.shape[1]
             for i in range(l):
-                if scanning_rate is not None:
-                    time.sleep(1/scanning_rate)
+                if scan_rate is not None:
+                    time.sleep(1/scan_rate)
                 yield _ar_data[:, i, :]
 
         # Vertical scanning: iterate over the third axis (axis 2)
