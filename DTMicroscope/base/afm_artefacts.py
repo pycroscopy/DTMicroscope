@@ -6,8 +6,9 @@ integration into the DT Boris Slautin
 
 import numpy as np
 from numba import jit, prange
+from scipy.signal import resample
 
-def real_tip(**kwargs): #TODO how to align it with the real dataset?
+def real_tip(**kwargs): #TODO how to align tip radius with the real dataset?
     '''
     Nessesary kwargs 'r_tip',
     '''
@@ -56,27 +57,58 @@ def tip_doubling(**kwargs):
 
     return gaus / np.sum(lc)
 
-@jit(nopython=True, parallel=True)
-def pad_image(image, pad_height, pad_width):
-    '''
-    Pad the image with -1 on the four edges to make sure we can run the kernel through all the pixels.
-    Inputs:
-        image:    -ndarray: 2D image array to be simulated based on
-        pad_height -int: kernel_height // 2
-        pad_width  -int:  kernel_width // 2
-    Outputs:
-        padded_image -ndarray: 2D image array with edge extented by padding -1
-    '''
-    image_height, image_width = image.shape
-    padded_height = image_height + 2 * pad_height
-    padded_width = image_width + 2 * pad_width
-    padded_image = -np.ones((padded_height, padded_width))  # Use constant value -1 for padding
+def real_PI(scan, **kwargs):
+    """
+    Applies a Proportional-Integral (PI) controller to a 2D scan array.
 
-    for i in prange(image_height):
-        for j in prange(image_width):
-            padded_image[i + pad_height, j + pad_width] = image[i, j]
+    This function emulates the application of a PI controller to each row of a 2D scan matrix, adjusting
+    the values based on specified proportional (P) and integral (I) gains, buffer length, and a possible
+    baseline offset (dz). The PI control is applied to each row individually, using the `PI_trace` function
+    for correction.
 
-    return padded_image
+    Args:
+        scan (array-like): A 2D array representing the scan data, where each row is processed by the PI controller.
+        **kwargs:
+            P (float, optional): Proportional gain. Default is 0.
+            I (float, optional): Integral gain. Default is 10.
+            buffer_length (int, optional): The length of the integral memory, i.e., number of past errors stored. Default is 500.
+            dz (float, optional): Offset to be subtracted from the scan data to account for baseline shift. Default is 0.
+
+    Returns:
+        numpy.ndarray: A 2D array where each row has been processed with the PI controller.
+
+    TODO:
+        Implement scan direction emulation.
+
+    Raises:
+        ValueError: If `scan` is not a 2D array.
+    """
+    # Retrieve parameters from kwargs with default values
+    I = kwargs.get('I', 10)
+    P = kwargs.get('P', 0)
+    length = int(kwargs.get('buffer_length', 40))
+    dz = float(kwargs.get('dz', 0))
+    scan_rate = float(kwargs.get('scan_rate', 0.5))
+    sample_rate = float(kwargs.get('sample_rate', 2000))
+
+    # Initialize output array with the same shape as the input scan
+    outp = np.zeros_like(scan).T
+
+    # Ensure that the input is a 2D array
+    if len(scan.shape) != 2:
+        raise ValueError("Input scan must be a 2D array.")
+
+    # Apply the PI controller to each row of the scan
+    for i, row in enumerate(scan.T):
+        row_time = resample_trace(row, scan_rate, sample_rate)
+        pi_out = PI_trace(row_time, P, I, length, dz)
+        mod_trace = resample_trace(pi_out, scan_rate, len(row)*scan_rate)
+        outp[i] = mod_trace
+    return outp.T
+
+
+
+
 @jit(nopython=True, parallel=True)
 def scanning(image, kernel):
     '''
@@ -102,12 +134,119 @@ def scanning(image, kernel):
 
     return output*np.ptp(image) + np.min(image)
 
+@jit(nopython=True, parallel=True)
+def pad_image(image, pad_height, pad_width):
+    '''
+    Pad the image with -1 on the four edges to make sure we can run the kernel through all the pixels.
+    Inputs:
+        image:    -ndarray: 2D image array to be simulated based on
+        pad_height -int: kernel_height // 2
+        pad_width  -int:  kernel_width // 2
+    Outputs:
+        padded_image -ndarray: 2D image array with edge extented by padding -1
+    '''
+    image_height, image_width = image.shape
+    padded_height = image_height + 2 * pad_height
+    padded_width = image_width + 2 * pad_width
+    padded_image = -np.ones((padded_height, padded_width))  # Use constant value -1 for padding
+
+    for i in prange(image_height):
+        for j in prange(image_width):
+            padded_image[i + pad_height, j + pad_width] = image[i, j]
+
+    return padded_image
+
+def resample_trace(array, scan_rate, sample_rate):
+    """
+    Resamples the input array to match a desired sampling rate.
+
+    This function takes an input 1D array (representing a trace or signal) and resamples it
+    to match a specified sampling rate, based on the current scan rate. It uses linear interpolation
+    to resample the array to the correct number of points.
+
+    Args:
+        array (array-like): The input 1D array representing the signal to be resampled.
+        scan_rate (float): The current scan rate at which the array was originally acquired.
+        sample_rate (float): The target sample rate to which the array should be resampled.
+
+    Returns:
+        numpy.ndarray: The resampled array with the number of points adjusted to match the new sample rate.
+
+    Raises:
+        ValueError: If the calculated number of points to resample is not valid.
+    """
+    # Calculate the number of points needed for resampling
+    point_number = sample_rate / scan_rate
+
+    # Ensure the number of points is a valid integer and resample
+    if point_number <= 0:
+        raise ValueError("The calculated number of points for resampling must be greater than zero.")
+
+    return resample(array, int(point_number))
 
 
 
-def real_PID():
-    pass
+def push_to_stack(stack, value):
+    """
+    Pushes a new value into a stack, shifting all elements to the left and placing the new value at the end.
 
+    Args:
+        stack (numpy.ndarray): A 1D numpy array representing the stack.
+        value (scalar): The new value to be appended to the stack.
 
+    Returns:
+        numpy.ndarray: Updated stack with the new value at the last position.
+    """
+    stack = np.roll(stack, -1)
+    stack[-1] = value
+    return stack
+
+def PI_trace(trace, P=0, I=10, length=40, dz=0):
+    """
+    Applies a Proportional-Integral (PI) controller to a 1D signal trace.
+
+    This function emulate PI controller work. It adjusts the trace values to reduce the difference between
+    the observed values and the desired reference, applying proportional (P) and
+    integral (I) gains. The controller also considers a potential constant offset (dz) under the surface (tapping mode).
+
+    Args:
+        trace (array-like): The input 1D signal to be processed.
+        P (float, optional): Proportional gain. Controls the immediate response to errors. Default is 0.
+        I (float, optional): Integral gain. Controls the cumulative response to errors over time. Default is 1e-2.
+        length (int, optional): The length of the integral memory, i.e., the number of past errors stored. Default is 500.
+        dz (float, optional): Offset to be subtracted from the trace to account for baseline shift. Default is 0.
+
+    Returns:
+        numpy.ndarray: The output array where PI control has been applied.
+
+    Raises:
+        ValueError: If the input `trace` is not a 1D array.
+    """
+    if len(np.shape(trace)) != 1:
+        raise ValueError("Input trace must be a 1D array.")
+
+    output = np.zeros_like(trace)
+    output[0] = trace[0]
+
+    # Initialize the integral memory with zeros
+    integral = np.zeros(length)
+
+    # Iterate through the trace to apply PI control
+    for i in range(len(trace) - 1):
+        # Compute the difference (error) between the current output and the trace
+        z_diff = output[i] - trace[i] - dz
+
+        # Update the integral memory stack with the current error
+        integral = push_to_stack(integral, z_diff)
+
+        # Update the output using the PI control formula
+        output[i + 1] = max(
+            trace[i + 1],
+            #we divide I on 1e4 to make it comparable with real AR coeficient
+            output[i] - P * z_diff - I / 1e4 * np.sum(integral)
+
+        )
+
+    return output
 
 
