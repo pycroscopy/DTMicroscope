@@ -274,7 +274,7 @@ class MicroscopeServer(object):
         >>> gen = m.scanning_emulator(scanning_rate=5)
         >>> line = next(gen)
         """
-        gen = self.microscope.scanning_emulator(scanning_rate=scanning_rate)
+        gen = self.microscope.scanning_emulator(scan_rate=scanning_rate)
         for line in gen:
             # Convert numpy arrays to lists before yielding them
             yield [l.tolist() for l in line]  # Convert each numpy array to a list
