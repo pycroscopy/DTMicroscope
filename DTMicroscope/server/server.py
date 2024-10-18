@@ -12,7 +12,7 @@ import sidpy
 # file_id = "1V9YPIRi4OLMBagXxT9s9Se4UJ-8oF3_q"# 
 # direct_url = f"https://drive.google.com/uc?id={file_id}"
 # gdown.download(direct_url, "test.h5", quiet=False)
-
+from DTMicroscope.base.afm_artefacts import real_tip, tip_doubling
 
 def serialize_array(array):
     """
@@ -194,17 +194,74 @@ class MicroscopeServer(object):
         """
         return self.microscope.y_max
     
-    def get_scan(self, channels = ['HeightRetrace','image_dataset_1'], modification = None):
+    def get_scan(self, channels = ['HeightRetrace','image_dataset_1'], mod_string = None, mod_kwargs = None):
         """
+        Gets the scan by incorporating appropriate modification
         Prams:
             channels : list
-            modification : dict/None : mod_dict = [{'effect': real_tip, 'kwargs': kwargs},]
-        
+            mod_string : string : options are None, "real_tip", "tip_doubling" , "real_PID"
+            mod_kwargs : dict 
+                        >>> mod_kwargs : kwargs = {'r_tip': [0.1, 0.05], 'center': [[0.2, 0.5], [0.6, 0.55]], 'length_coef': [1, 0.8]}
+                        >>> mod_kwargs = {'I': 2, 'dz':10e-9, 'sample_rate': 2000} # pid
+                        >>> mod_kwargs = {'I': 30, 'dz':10e-9, 'sample_rate': 2000} # pid
+                        >>> mod_kwargs = {'I': 10, 'dz':10e-9, 'sample_rate': 2000} # pid
         Returns:
             data : numpy array
         """
-        data = self.microscope.get_scan(channels=channels, modification=modification)
+        if  mod_string is None:
+            modification = None
+            data = self.microscope.get_scan(channels=channels, modification=modification)
+
+        elif mod_string == "real_tip":
+            modification = [{'effect': real_tip, 'kwargs': mod_kwargs},]
+            data = self.microscope.get_scan(channels=channels, modification=modification)
+
+        elif mod_string == "tip_doubling":
+            modification = [{'effect': tip_doubling, 'kwargs': mod_kwargs},]
+            data = self.microscope.get_scan(channels=channels, modification=modification)
+            
+        elif mod_string == "real_PID":
+            modification = [{'effect': 'real_PID', 'kwargs': mod_kwargs},]
+            data = self.microscope.get_scan(channels=channels, modification=modification)
+
         return serialize_array(data)
+
+    def scan_individual_line(self, direction = "vertical", coord = -1e-6, channels=['Amplitude1Retrace', 'Phase1Retrace'], mod_string = None, mod_kwargs = None):
+        """
+        Params:
+            direction : string
+            coord : float
+            channels : list
+            mod_string : string : options are None, "real_tip", "tip_doubling" # pid part add later?
+            mod_kwargs : dict
+                >>> kwargs = {'r_tip': [0.05, 0.05], 'center': [[0.2, 0.5], [0.6, 0.75]], 'length_coef': [1, 0.9]}
+
+        
+        Returns:
+            line : array
+        
+        >>> line = m.scan_individual_line('vertical', coord = -1e-6, channels=['Amplitude1Retrace', 'Phase1Retrace'])
+        
+        """
+        
+        if mod_string == None:
+            modification = None
+            line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
+
+        elif mod_string == "real_tip":
+            modification = [{'effect': real_tip, 'kwargs': mod_kwargs},]
+            line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
+
+        elif mod_string == "tip_doubling":
+            modification = [{'effect': tip_doubling, 'kwargs': mod_kwargs},]
+            line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
+            
+        # elif mod_string == "tip_doubling":
+        #     modification = [{'effect': , 'kwargs': mod_kwargs},]
+        #     line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
+            
+
+        return serialize_array(line)
     
     def scanning_emulator(self, scanning_rate=5):
         """
@@ -223,21 +280,7 @@ class MicroscopeServer(object):
             yield [l.tolist() for l in line]  # Convert each numpy array to a list
 
         
-    def scan_individual_line(self, direction = "vertical", coord = -1e-6, channels=['Amplitude1Retrace', 'Phase1Retrace']):
-        """
-        Params:
-            direction : string
-            coord : float
-            channels : list
-        
-        Returns:
-            line : array
-        
-        >>> line = m.scan_individual_line('vertical', coord = -1e-6, channels=['Amplitude1Retrace', 'Phase1Retrace'])
-        
-        """
-        line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels)
-        return serialize_array(line)
+
     
     def scan_arbitrary_path(self, path_points = np.array([[-2e-6,2e-6],[1e-6,1.8e-6],[2.1e-6,2e-6]]), channels=['Amplitude1Retrace']):
         """
