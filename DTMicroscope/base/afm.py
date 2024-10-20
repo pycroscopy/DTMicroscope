@@ -85,6 +85,9 @@ class AFM_Microscope(BaseMicroscope):
         self.instrument_type = 'AFM'
         self.data_source = None
 
+        #specify data acquisition rate for PI emulation
+        self.sample_rate = 2000 #Hz
+
     def setup_microscope(self, data_source='generate'):
         """
         Initializes the microscope setup by either generating synthetic data or loading pre-existing data.
@@ -95,8 +98,6 @@ class AFM_Microscope(BaseMicroscope):
         self.data_source = data_source
         if self.data_source == 'generate':
             pass
-            #self.data = self._generate_synthetic_data(gen_params)
-
         elif self.data_source in self.data_dict['Compound_Datasets']:
             # Load pre-existing data
             self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source])
@@ -110,14 +111,6 @@ class AFM_Microscope(BaseMicroscope):
     def _generate_synthetic_data(self, grid_size, noise_level):
         dataset = None
         return dataset
-
-    # def _load_data(self):
-    #     '''
-    #     Load pre-acquired dataset
-    #     '''
-    #     reader = NSIDReader(self.data_source)
-    #     self.dataset = reader.read()
-    #     reader.close()
 
     def process_dataset(self, dset):
         """
@@ -199,7 +192,7 @@ class AFM_Microscope(BaseMicroscope):
         ]
         return info_list
 
-    def get_scan(self, channels = None, modification=None, ):
+    def get_scan(self, channels = None, modification=None, scan_rate = 0.5):
         """
             Retrieves scan data from the dataset, optionally filtered by specific channels.
 
@@ -225,7 +218,6 @@ class AFM_Microscope(BaseMicroscope):
         _quantity = [self.dataset[k].quantity for k in self._im_ind]
 
         for ch in channels:
-            print(ch)
             # Check if the channel exists in _im_ind (by key)
             if ch in self._im_ind:
                 ind_list.append(self._im_ind[ch])
@@ -246,16 +238,27 @@ class AFM_Microscope(BaseMicroscope):
             return self.scan_ar[ind_list]
 
         elif type(modification) is list:
+            current_scan = self.scan_ar[ind_list]
             for eff_dict in modification:
                 if type(eff_dict) is dict:
                     kwargs = eff_dict['kwargs']
-                    modified_scan = np.array([scanning(ar,
-                                                       eff_dict['effect'](**kwargs)) for ar in self.scan_ar[ind_list]])
-                    return modified_scan
+                    if eff_dict['effect'] != 'real_PID':
+                        modified_scan = np.array([scanning(ar,
+                                                           eff_dict['effect'](**kwargs)) for ar in current_scan])
+                        current_scan = modified_scan
+                    else:
+                        kwargs = eff_dict['kwargs']
+                        kwargs['scan_rate'] = scan_rate
+                        kwargs['sample_rate'] = float(kwargs.get('sample_rate', self.sample_rate))
+                        modified_scan = np.array([real_PI(ar, **kwargs) for ar in current_scan])
+                        current_scan = modified_scan
+
+                    return current_scan
                 else:
                     raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
-    def scanning_emulator(self, direction='horizontal', channels=None, scanning_rate=None):
+    def scanning_emulator(self, direction='horizontal', channels=None, scan_rate=None,
+                          modification=None):
         """
         Emulates a scanning process over the data, either horizontally or vertically, yielding slices of scan data.
 
@@ -267,16 +270,17 @@ class AFM_Microscope(BaseMicroscope):
         Yields:
             numpy.ndarray: A 2D slice of the scan data for each step of the emulated scan.
         """
-
+        if scan_rate == None:
+            scan_rate = 0.5
         # Get the scan data from the provided channels
-        _ar_data = self.get_scan(channels)
+        _ar_data = self.get_scan(channels, scan_rate=scan_rate, modification=modification)
 
         # Horizontal scanning: iterate over the second axis (axis 1)
         if direction == 'horizontal':
             l = _ar_data.shape[1]
             for i in range(l):
-                if scanning_rate is not None:
-                    time.sleep(1/scanning_rate)
+                if scan_rate is not None:
+                    time.sleep(1/scan_rate)
                 yield _ar_data[:, i, :]
 
         # Vertical scanning: iterate over the third axis (axis 2)
@@ -310,7 +314,8 @@ class AFM_Microscope(BaseMicroscope):
         self.y = max(self.y_coords.min(), min(y, self.y_coords.max()))
         return True
 
-    def scan_individual_line(self, direction='horizontal', coord=0, channels=None):
+    def scan_individual_line(self, direction='horizontal', coord=0, channels=None,
+                             modification=None):
         """
         Extracts a specific line of data from the scan array, either horizontally or vertically,
         based on the given coordinate and direction.
@@ -326,14 +331,14 @@ class AFM_Microscope(BaseMicroscope):
             numpy.ndarray: A 2D slice (channels, line) of the scan data along the specified line.
         """
 
-        _scan_ar = self.get_scan(channels = channels)
+        _scan_ar = self.get_scan(channels=channels, modification=modification)
         if direction == 'horizontal':
-            self.go_to(x = self.x_coords.min(), y = coord)
+            self.go_to(x = self.x_coords.min(), y=coord)
             _ind = np.argmin(np.abs(self.y_coords - coord))
             _line_ar = _scan_ar[:,_ind,:]
 
         elif direction == 'vertical':
-            self.go_to(x = coord, y = self.y_coords.max())
+            self.go_to(x=coord, y=self.y_coords.max())
             _ind = np.argmin(np.abs(self.x_coords - coord))
             _line_ar = _scan_ar[:,:,_ind]
 
@@ -342,7 +347,7 @@ class AFM_Microscope(BaseMicroscope):
 
         return _line_ar
 
-    def scan_arbitrary_path(self, path_points, channels=None):
+    def scan_arbitrary_path(self, path_points, channels=None, modification=None):
         """
             Scans the data along an arbitrary path defined by real-world coordinates and returns the corresponding
             scan values. The function corrects any out-of-range coordinates by clamping them to the closest valid points.
@@ -367,7 +372,7 @@ class AFM_Microscope(BaseMicroscope):
             raise ValueError("path_points must have shape (N, 2), where N > 1 is the number of points.")
 
         # Get the scan array with selected channels
-        _scan_ar = self.get_scan(channels=channels)
+        _scan_ar = self.get_scan(channels=channels, modification=modification)
 
         # Copy and correct out-of-range coordinates
         corrected_path_points = np.copy(path_points)
@@ -400,7 +405,7 @@ class AFM_Microscope(BaseMicroscope):
         path_pixel_coords = np.array(path_pixel_coords).astype(int)
 
         # Return the scan data along the calculated path
-        return _scan_ar[:, path_pixel_coords[:, 1], path_pixel_coords[:, 0]]
+        return _scan_ar[:, path_pixel_coords[:, 0], path_pixel_coords[:, 1]]
 
     def get_spectrum(self, location=None, channel=None):
         """
