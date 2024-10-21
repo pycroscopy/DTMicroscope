@@ -88,7 +88,7 @@ class AFM_Microscope(BaseMicroscope):
         #specify data acquisition rate for PI emulation
         self.sample_rate = 2000 #Hz
 
-    def setup_microscope(self, data_source='generate'):
+    def setup_microscope(self, data_source='generate', dset_subset = None):
         """
         Initializes the microscope setup by either generating synthetic data or loading pre-existing data.
 
@@ -100,7 +100,7 @@ class AFM_Microscope(BaseMicroscope):
             pass
         elif self.data_source in self.data_dict['Compound_Datasets']:
             # Load pre-existing data
-            self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source], compound = True)
+            self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source], compound = True, dset_subset=dset_subset)
 
         elif self.data_source in self.data_dict['Single_Datasets']:
             # Load pre-existing data
@@ -112,14 +112,18 @@ class AFM_Microscope(BaseMicroscope):
         dataset = None
         return dataset
 
-    def process_dataset(self, dset, compound = False):
+    def process_dataset(self, dset, compound = False, dset_subset = None):
         """
+        TODO: Need to discuss how to handle the dictionary of dictionary structures we really have...
+
         Parses the dataset to identify and index different data types (IMAGE, SPECTRUM, POINT_CLOUD),
         and processes the scan data accordingly.
         
         Input:
             - dset: (dict) of sidpy dataset for processing
             - compound: (bool) True if you are providing a compound dataset.
+            - dset_subset: (str, optional): if compound = True, then provide the key for the dataset to be used within the compound dset.
+                            Will default to the existing spectroscopic dataset if not provided.
 
         This method creates three dictionaries to store indices for the different types of data:
         - `_im_ind`: stores indices for IMAGE data.
@@ -149,8 +153,14 @@ class AFM_Microscope(BaseMicroscope):
         self.scan_ar = []
 
         if compound:
-            print("compound dataset detected! We will use the spectroscopic dataset to start")
-            self.dataset = dset['spectral_dataset_0']
+            if dset_subset is None:
+                print("compound dataset detected! We will use the spectroscopic dataset to start")
+                self.dataset = dset['spectral_dataset_0']
+            elif dset_subset not in dset.keys():
+                raise ValueError("The provided key {} is not a dataset within the compound dataset, which has the following keys: {}".format(
+                    dset_subset, dset.keys()))
+            else:
+                self.dataset = dset[dset_subset]
 
         for i, (key, value) in enumerate(self.dataset.items()):
             data_type = value.data_type
@@ -175,9 +185,13 @@ class AFM_Microscope(BaseMicroscope):
         #write spatial coordinates
         if len(self._im_ind.items())>0:
             first_im_ind = next(iter(self._im_ind))
-        else:
+        elif len(self._pc_ind.items())>0:
+            first_im_ind = next(iter(self._pc_ind))
+        elif len(self._sp_ind.items())>0:
             first_im_ind = next(iter(self._sp_ind))
-            #im_indices = self.dataset[first_spectral_dset].get_image_dims()
+        else:
+            raise ValueError("The chosen dataset does not have image, spectra or point clouds. Not supported.")
+        
                 
         try:
             self.x_coords = self.dataset[first_im_ind].x.values
@@ -477,7 +491,7 @@ class AFM_Microscope(BaseMicroscope):
             _y = point_cloud[_closest_ind].compute()
 
             # Get the spectral dimension
-            _spectral_dim = point_cloud.get_spectral_dims()
+            _spectral_dim = point_cloud.get_spectrum_dims()
             _spec_dim = point_cloud.get_dimension_by_number(_spectral_dim)[0].values
 
         elif len(self._sp_ind)>0:
@@ -500,7 +514,7 @@ class AFM_Microscope(BaseMicroscope):
             _y = spectrum[_closest_ind_x, _closest_ind_y].compute()
 
             # Get the spectral dimension
-            _spectral_dim = spectrum.get_spectral_dims()
+            _spectral_dim = spectrum.get_spectrum_dims()
             _spec_dim = spectrum.get_dimension_by_number(_spectral_dim)[0].values
             
         else:
