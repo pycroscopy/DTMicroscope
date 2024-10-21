@@ -13,9 +13,13 @@ import uuid
 original_metadata['uuid'] = str(uuid.uuid4())
 
 Additionally, if you have images and spectra that are linked, you must use
+
 original_metadata['associated-image'] = uuid_image
+
 and
+
 original_metadata['associated-spec'] = uuid_spec
+
 This way you can save multiple datasets to a single h5 file and load them into DTMicroscope
 
 """
@@ -164,7 +168,7 @@ class BaseMicroscope(object):
                 if 'associated-image' in dataset[next_key].original_metadata.keys():
                     associated_image = dataset[next_key].original_metadata['associated-image']
                     uids_linked.append([dataset[next_key].original_metadata['uuid'], associated_image])
-                    print('associated image is {}'.format(associated_image))
+                    #print('associated image is {}'.format(associated_image))
         linked_dset = {}
         for uids in uids_linked:
             spec_dataset = self._get_dataset_by_uid(uids[0], dataset_list)
@@ -184,15 +188,6 @@ class BaseMicroscope(object):
         """
         Parses the dataset to identify and index different data types (IMAGE, SPECTRUM, POINT_CLOUD),
         and processes the scan data accordingly.
-
-        TODO: Add ability to associate individual image datasets with spectroscopic datasets. 
-        This will need to be done by adding UIDs for each dataset and associating the spectroscopic dataset to the image
-        #in original_metadata, have a key for 'UID' and a key for 'associated-image' (the latter will only be for spectroscopic)
-        #or also have 'associated-spec' to refer to associated spectroscopic files
-        #When we read through the metadata we can immediately identify the available spectroscopic exps.
-
-        In fact the rest of this function coudl be moved into 'process datasets' to assemble the combined ones...
-        
 
         This method creates three dictionaries to store indices for the different types of data:
         - `_im_ind`: stores indices for IMAGE data.
