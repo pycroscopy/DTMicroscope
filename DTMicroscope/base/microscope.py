@@ -13,9 +13,13 @@ import uuid
 original_metadata['uuid'] = str(uuid.uuid4())
 
 Additionally, if you have images and spectra that are linked, you must use
+
 original_metadata['associated-image'] = uuid_image
+
 and
+
 original_metadata['associated-spec'] = uuid_spec
+
 This way you can save multiple datasets to a single h5 file and load them into DTMicroscope
 
 """
@@ -71,23 +75,54 @@ class BaseMicroscope(object):
 
         grouped_dsets = []
         single_dsets = []
-        for key in datasets:
-            if ('associated-image' in datasets[key].original_metadata.keys()) or ('associated-spec' in datasets[key].original_metadata.keys()):
-                grouped_dsets.append(datasets[key])
+
+        #First, make each datasets into a dictionary with channels
+        #We can identify which dataset has channels by collecting all likewise datasets with teh same uuids.
+
+        dataset_by_channels = {}
+        all_uuid_vals = []
+        counter=0
+        for ind,key in enumerate(datasets):
+            
+            uuid_val = datasets[key].original_metadata['uuid']
+            if uuid_val not in all_uuid_vals:
+                dataset_ch = {'Channel_0': datasets[key]}
+                channel_val=1
+                for new_key in datasets:
+                    if datasets[new_key].original_metadata['uuid'] == uuid_val: 
+                        new_channel = 'Channel_'+str(channel_val)
+                        dataset_ch[new_channel] = datasets[new_key]
+                        channel_val+=1
+                    else:
+                        pass
+                all_uuid_vals.append(uuid_val)
+                dataset_by_channels['Dataset_'+str(counter)] = dataset_ch
+                counter+=1
+
+        for key in dataset_by_channels:
+            m=0
+            for next_key in dataset_by_channels[key].keys():
+                if ('associated-image' in dataset_by_channels[key][next_key].original_metadata.keys()) or \
+                ('associated-spec' in dataset_by_channels[key][next_key].original_metadata.keys()):
+                    if m==0:
+                        grouped_dsets.append(dataset_by_channels[key])
+                        m+=1
             else:
-                single_dsets.append(datasets[key])
+                single_dsets.append(dataset_by_channels[key])
 
         all_datasets = {}
         all_datasets['Compound_Datasets'] = self._find_linked_datasets(grouped_dsets)
+
         #add the single datasets
         all_datasets['Single_Datasets'] = {}
         for ind,ds in enumerate(single_dsets):
-            all_datasets['Single_Datasets']['Single_Dataset_'+str(ind)] = {'0':ds}
+            all_datasets['Single_Datasets']['Single_Dataset_'+str(ind)] = ds
+        
         self.data_dict = all_datasets
 
         return 
     
-    def _get_dataset_by_uid(self, uid_list, dataset_list):
+    def _get_dataset_by_uid(self,uid_list, dataset_list):
         """
         Input:
             - uid_list (type: str or list of str): list of uuids
@@ -99,16 +134,25 @@ class BaseMicroscope(object):
         for ds in dataset_list:
             if type(uid_list)==np.ndarray:
                 for uid in uid_list.astype(str):
-                    if ds.original_metadata['uuid']==uid:
-                        returned_datasets.append(ds)
+                    m=0
+                    for next_key in ds.keys():
+                        if ds[next_key].original_metadata['uuid']==uid:
+                            if m==0:
+                                returned_datasets.append(ds)
+                                m+=1
             else:
-                if ds.original_metadata['uuid']==uid_list:
-                        returned_datasets.append(ds)
-               
+                m=0
+                for next_key in ds.keys():
+                    
+                    if ds[next_key].original_metadata['uuid']==uid_list:
+                        if m==0:
+                            returned_datasets.append(ds)
+                            m+=1
+            
         return returned_datasets
     
-    def _find_linked_datasets(self, dataset_list):
-    
+    def _find_linked_datasets(self,dataset_list):
+        
         linked_datasets = {}
         
         # Initialize a counter to name the linked dataset groups
@@ -120,14 +164,16 @@ class BaseMicroscope(object):
             associated_image = None
 
             #At this point we just want to go to each spectroscopic dataset and link any image dataset
-            if 'associated-image' in dataset.original_metadata.keys():
-                associated_image = dataset.original_metadata['associated-image']
-                uids_linked.append([dataset.original_metadata['uuid'], associated_image])
-                print('associated image is {}'.format(associated_image))
+            for next_key in dataset.keys():
+                if 'associated-image' in dataset[next_key].original_metadata.keys():
+                    associated_image = dataset[next_key].original_metadata['associated-image']
+                    uids_linked.append([dataset[next_key].original_metadata['uuid'], associated_image])
+                    #print('associated image is {}'.format(associated_image))
         linked_dset = {}
         for uids in uids_linked:
             spec_dataset = self._get_dataset_by_uid(uids[0], dataset_list)
             image_dataset = self._get_dataset_by_uid(uids[1], dataset_list)
+        
             for ind,dset in enumerate(spec_dataset):            
                 linked_dset['spectral_dataset_'+str(ind)] = dset
             for ind,dset in enumerate(image_dataset):            
@@ -142,15 +188,6 @@ class BaseMicroscope(object):
         """
         Parses the dataset to identify and index different data types (IMAGE, SPECTRUM, POINT_CLOUD),
         and processes the scan data accordingly.
-
-        TODO: Add ability to associate individual image datasets with spectroscopic datasets. 
-        This will need to be done by adding UIDs for each dataset and associating the spectroscopic dataset to the image
-        #in original_metadata, have a key for 'UID' and a key for 'associated-image' (the latter will only be for spectroscopic)
-        #or also have 'associated-spec' to refer to associated spectroscopic files
-        #When we read through the metadata we can immediately identify the available spectroscopic exps.
-
-        In fact the rest of this function coudl be moved into 'process datasets' to assemble the combined ones...
-        
 
         This method creates three dictionaries to store indices for the different types of data:
         - `_im_ind`: stores indices for IMAGE data.

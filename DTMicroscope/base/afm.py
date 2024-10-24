@@ -88,7 +88,7 @@ class AFM_Microscope(BaseMicroscope):
         #specify data acquisition rate for PI emulation
         self.sample_rate = 2000 #Hz
 
-    def setup_microscope(self, data_source='generate'):
+    def setup_microscope(self, data_source='generate', dset_subset = None):
         """
         Initializes the microscope setup by either generating synthetic data or loading pre-existing data.
 
@@ -100,7 +100,7 @@ class AFM_Microscope(BaseMicroscope):
             pass
         elif self.data_source in self.data_dict['Compound_Datasets']:
             # Load pre-existing data
-            self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source])
+            self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source], compound = True, dset_subset=dset_subset)
 
         elif self.data_source in self.data_dict['Single_Datasets']:
             # Load pre-existing data
@@ -112,10 +112,18 @@ class AFM_Microscope(BaseMicroscope):
         dataset = None
         return dataset
 
-    def process_dataset(self, dset):
+    def process_dataset(self, dset, compound = False, dset_subset = None):
         """
+        TODO: Need to discuss how to handle the dictionary of dictionary structures we really have...
+
         Parses the dataset to identify and index different data types (IMAGE, SPECTRUM, POINT_CLOUD),
         and processes the scan data accordingly.
+        
+        Input:
+            - dset: (dict) of sidpy dataset for processing
+            - compound: (bool) True if you are providing a compound dataset.
+            - dset_subset: (str, optional): if compound = True, then provide the key for the dataset to be used within the compound dset.
+                            Will default to the existing spectroscopic dataset if not provided.
 
         This method creates three dictionaries to store indices for the different types of data:
         - `_im_ind`: stores indices for IMAGE data.
@@ -136,23 +144,36 @@ class AFM_Microscope(BaseMicroscope):
             self.y (float): y-coordinate of the scanning tip, placed at the center of the scan.
         """
         self.dataset = dset
+        
         _keys = list(self.dataset.keys())
+
+
         #index dict
         self._im_ind, self._sp_ind, self._pc_ind = {}, {}, {}
         self.scan_ar = []
 
+        if compound:
+            if dset_subset is None:
+                print("compound dataset detected! We will use the spectroscopic dataset to start")
+                self.dataset = dset['spectral_dataset_0']
+            elif dset_subset not in dset.keys():
+                raise ValueError("The provided key {} is not a dataset within the compound dataset, which has the following keys: {}".format(
+                    dset_subset, dset.keys()))
+            else:
+                self.dataset = dset[dset_subset]
+
         for i, (key, value) in enumerate(self.dataset.items()):
             data_type = value.data_type
-
+            
             # Store indices and data based on the data type
             if data_type == sd.DataType['IMAGE']:
                 self.scan_ar.append(value.compute())
                 self._im_ind[key] = len(self.scan_ar)-1
-            elif data_type == sd.DataType['SPECTRUM']:
+            elif data_type == sd.DataType['SPECTRUM'] or data_type==sd.DataType['SPECTRAL_IMAGE']:
                 self._sp_ind[key] = i
             elif data_type == sd.DataType['POINT_CLOUD']:
                 self._pc_ind[key] = i
-
+           
         # Convert the collected image data to a numpy array
         if self.scan_ar:
             try:
@@ -161,17 +182,26 @@ class AFM_Microscope(BaseMicroscope):
                 raise ValueError(
                     "Inconsistent scan data. Ensure all scans have the same dimensions.") from e
 
-        #write spacial coordinates
-        first_im_ind = next(iter(self._im_ind))
+        #write spatial coordinates
+        if len(self._im_ind.items())>0:
+            first_im_ind = next(iter(self._im_ind))
+        elif len(self._pc_ind.items())>0:
+            first_im_ind = next(iter(self._pc_ind))
+        elif len(self._sp_ind.items())>0:
+            first_im_ind = next(iter(self._sp_ind))
+        else:
+            raise ValueError("The chosen dataset does not have image, spectra or point clouds. Not supported.")
+        
+                
         try:
             self.x_coords = self.dataset[first_im_ind].x.values
             self.y_coords = self.dataset[first_im_ind].y.values
-       
+    
         except:
             print("You don't have any x and y coordinates! Using defaults")
             self.x_coords = np.linspace(0,1,self.dataset[first_im_ind].shape[0])
             self.y_coords =  np.linspace(0,1,self.dataset[first_im_ind].shape[1])
-            
+        
 
         self.x_min, self.x_max = self.x_coords.min(), self.x_coords.max()
         self.y_min, self.y_max = self.y_coords.min(), self.y_coords.max()
@@ -179,6 +209,23 @@ class AFM_Microscope(BaseMicroscope):
         #place tip in the center of scan
         self.x = self.x_coords[len(self.x_coords)//2]
         self.y = self.y_coords[len(self.y_coords)//2]
+        print('finished processing dataset')
+
+
+    def _index_to_xy(self, flat_index, num_cols):
+        """
+        Converts a flat index to the corresponding [x, y] indices in a 2D matrix.
+
+        Parameters:
+        flat_index (int): The index in the flattened matrix.
+        num_cols (int): The number of columns in the matrix.
+
+        Returns:
+        tuple: A tuple of (x, y) coordinates corresponding to the flat index.
+        """
+        x = flat_index // num_cols
+        y = flat_index % num_cols
+        return (x, y)
 
     def get_dataset_info(self):
         _keys = self.dataset.keys()
@@ -422,32 +469,56 @@ class AFM_Microscope(BaseMicroscope):
                     - _spec_dim (np.ndarray): x_data.
                     - _y (np.ndarray): The spectrum data for the closest point to the given location.
         """
-        # Check if point cloud data is available
-        if len(self._pc_ind) == 0:
-            raise ValueError('There is no point cloud data in the dataset.')
-
-        # Use the current (x, y) location if no location is provided
+         # Use the current (x, y) location if no location is provided
         if location is None:
             location = (self.x, self.y)
 
-        # Select the point cloud channel to use
-        if channel is None:
-            point_cloud = self.dataset[list(self._pc_ind.keys())[0]]  # Default to the first point cloud channel
-        elif channel not in self._pc_ind:
-            raise ValueError(f'The selected channel "{channel}" is not a point cloud channel.')
+        # Check if point cloud data is available
+        if len(self._pc_ind)>0:
+            # Select the point cloud channel to use
+            if channel is None:
+                point_cloud = self.dataset[list(self._pc_ind.keys())[0]]  # Default to the first point cloud channel
+            elif channel not in self._pc_ind:
+                raise ValueError(f'The selected channel "{channel}" is not a point cloud channel.')
+            else:
+                point_cloud = self.dataset[channel]
+
+            # Find the closest point in the point cloud to the given location
+            _point_coords = point_cloud.point_cloud['coordinates']
+            _closest_ind = self._find_closest_point(_point_coords, location)
+
+            # Get the spectrum data for the closest point
+            _y = point_cloud[_closest_ind].compute()
+
+            # Get the spectral dimension
+            _spectral_dim = point_cloud.get_spectrum_dims()
+            _spec_dim = point_cloud.get_dimension_by_number(_spectral_dim)[0].values
+
+        elif len(self._sp_ind)>0:
+            if channel is None:
+                spectrum = self.dataset[list(self._sp_ind.keys())[0]]
+            elif channel not in self._sp_ind:
+                raise ValueError(f'The selected channel "{channel}" is not a spectral image channel.')
+            else:
+                spectrum = self.dataset[channel]
+
+            # Find the closest point in the point cloud to the given location
+            xp, yp = np.meshgrid(self.x_coords, self.y_coords)
+            _point_coords = np.array([xp.ravel(),yp.ravel()]).T
+            
+            _closest_ind = self._find_closest_point(_point_coords, location)
+            #convert the index to x,y
+            _closest_ind_x, _closest_ind_y = self._index_to_xy(_closest_ind, num_cols = len(self.y_coords))
+           
+            # Get the spectrum data for the closest point
+            _y = spectrum[_closest_ind_x, _closest_ind_y].compute()
+
+            # Get the spectral dimension
+            _spectral_dim = spectrum.get_spectrum_dims()
+            _spec_dim = spectrum.get_dimension_by_number(_spectral_dim)[0].values
+            
         else:
-            point_cloud = self.dataset[channel]
-
-        # Find the closest point in the point cloud to the given location
-        _point_coords = point_cloud.point_cloud['coordinates']
-        _closest_ind = self._find_closest_point(_point_coords, location)
-
-        # Get the spectrum data for the closest point
-        _y = point_cloud[_closest_ind].compute()
-
-        # Get the spectral dimension
-        _spectral_dim = point_cloud.get_spectral_dims()
-        _spec_dim = point_cloud.get_dimension_by_number(_spectral_dim)[0].values
+            raise ValueError('There is no point cloud or spectral data in the dataset.')
 
         return (_spec_dim, _y)
 
