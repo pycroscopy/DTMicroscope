@@ -1,7 +1,6 @@
 import numpy as np
 from .microscope import *
 from .afm_artefacts import *
-from SciFiReaders import NSIDReader
 import sidpy as sd
 import time
 class AFM_Microscope(BaseMicroscope):
@@ -23,33 +22,28 @@ class AFM_Microscope(BaseMicroscope):
         y_coords (numpy.ndarray): The y-coordinates of the scan grid.
         x (float): The current x-coordinate of the probe position.
         y (float): The current y-coordinate of the probe position.
-        log (list): A log that records operations performed by the microscope.
-        gen_params (dict): Parameters used for generating synthetic data.
+        log (list): A log that records operations performed by the microscope. #TODO
+        gen_params (dict): Parameters used for generating synthetic data. #TODO
         scan_ar (numpy.ndarray): The array holding scanned data from image channels.
         _im_ind (dict): A dictionary that holds the indices of image data channels.
         _sp_ind (dict): A dictionary that holds the indices of spectrum data channels.
         _pc_ind (dict): A dictionary that holds the indices of point cloud data channels.
 
     Methods:
-        setup_microscope(data_source='generate'):
-            Sets up the microscope by generating synthetic data or loading pre-existing data.
+        setup_microscope(data_source='generate', dset_subset=None)
+            Initializes the microscope by generating synthetic data or loading an existing dataset.
 
-        _generate_synthetic_data(grid_size, noise_level):
-            Generates synthetic surface height data based on the given grid size and noise level.
+        _generate_synthetic_data(grid_size, noise_level) #TODO
+            Generates synthetic surface height data based on the specified grid size and noise level.
 
-        _load_data():
-            Loads pre-acquired data from an external source.
-
-        _parse_dataset():
-            Parses the dataset and organizes image, spectrum, and point cloud data into separate
-            dictionaries for easy access.
+        process_dataset(dset, compound=False, dset_subset=None)
+            Parses and processes the dataset to identify and organize image, spectrum, and point cloud data.
 
         get_dataset_info():
             Returns a summary of the dataset, including the available channels and their signals.
 
-        get_scan(channels=None):
-            Retrieves scan data for the specified channels. If no channels are provided, it returns
-            the entire scan array.
+        get_scan(channels=None, modification=None, scan_rate=0.5):
+            Retrieves scan data for the specified channels, applying modifications if provided.
 
         scanning_emulator(direction='horizontal', channels=None):
             Emulates the scanning process along a horizontal or vertical axis, yielding 2D slices
@@ -58,7 +52,7 @@ class AFM_Microscope(BaseMicroscope):
         go_to(x, y):
             Moves the probe to the specified (x, y) coordinates, clamping them to valid ranges if necessary.
 
-        scan_individual_line(direction='horizontal', coord=0, channels=None):
+        scan_individual_line(direction='horizontal', coord=0, channels=None, modification=None):
             Scans a single horizontal or vertical line at the specified coordinate in the grid.
 
         scan_arbitrary_path(path_points, channels=None):
@@ -97,7 +91,7 @@ class AFM_Microscope(BaseMicroscope):
         """
         self.data_source = data_source
         if self.data_source == 'generate':
-            pass
+            pass #TODO
         elif self.data_source in self.data_dict['Compound_Datasets']:
             # Load pre-existing data
             self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source], compound = True, dset_subset=dset_subset)
@@ -106,9 +100,7 @@ class AFM_Microscope(BaseMicroscope):
             # Load pre-existing data
             self.process_dataset(dset = self.data_dict['Single_Datasets'][self.data_source])
 
-        #return [self._images_keys, self._spectra_keys, self._point_cloud_keys]
-
-    def _generate_synthetic_data(self, grid_size, noise_level):
+    def _generate_synthetic_data(self, ):
         dataset = None
         return dataset
 
@@ -196,7 +188,6 @@ class AFM_Microscope(BaseMicroscope):
         try:
             self.x_coords = self.dataset[first_im_ind].x.values
             self.y_coords = self.dataset[first_im_ind].y.values
-    
         except:
             print("You don't have any x and y coordinates! Using defaults")
             self.x_coords = np.linspace(0,1,self.dataset[first_im_ind].shape[0])
@@ -286,7 +277,9 @@ class AFM_Microscope(BaseMicroscope):
 
         elif type(modification) is list:
             current_scan = self.scan_ar[ind_list]
+
             for eff_dict in modification:
+
                 if type(eff_dict) is dict:
                     kwargs = eff_dict['kwargs']
                     if eff_dict['effect'] != 'real_PID':
@@ -303,6 +296,8 @@ class AFM_Microscope(BaseMicroscope):
                     return current_scan
                 else:
                     raise ValueError(r'''Attribute 'modification' should be list of dict''')
+        else:
+            raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
     def scanning_emulator(self, direction='horizontal', channels=None, scan_rate=None,
                           modification=None):
@@ -339,6 +334,8 @@ class AFM_Microscope(BaseMicroscope):
         # If the direction is neither horizontal nor vertical, raise an error
         else:
             raise ValueError("The 'direction' must be either 'horizontal' or 'vertical'.")
+
+        return
 
     def go_to(self, x, y):
         """

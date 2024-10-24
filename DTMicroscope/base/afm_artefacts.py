@@ -107,7 +107,25 @@ def real_PI(scan, **kwargs):
     return outp.T
 
 
+@jit(nopython=True, parallel=True)
+def scanning_trajectory(image, coords_ar, kernel):
+    image_height, image_width = image.shape
+    kernel_height, kernel_width = kernel.shape
 
+    pad_height = kernel_height // 2
+    pad_width = kernel_width // 2
+
+    norm_image = (image - np.min(image)) / np.ptp(image)
+    padded_image = pad_image(norm_image, pad_height, pad_width)
+
+    output = np.zeros(len(coords_ar))
+
+    for k in prange(len(coords_ar)):
+        j,i = coords_ar[k]
+        crop = padded_image[i:i + kernel_height, j:j + kernel_width]
+        output[k] = 1 - np.min(2 - kernel - crop)
+
+    return output
 
 @jit(nopython=True, parallel=True)
 def scanning(image, kernel):
