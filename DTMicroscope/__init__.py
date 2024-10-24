@@ -2,8 +2,9 @@
 The DigitalTwin Microscope package
 """
 
-from .__version__ import version as __version__
-from .base import *
+from DTMicroscope.__version__ import version as __version__
+from DTMicroscope import base
+
 
 __all__ = ['__version__']
 
