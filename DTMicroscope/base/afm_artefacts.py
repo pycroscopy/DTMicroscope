@@ -57,7 +57,7 @@ def tip_doubling(**kwargs):
 
     return gaus / np.sum(lc)
 
-def real_PI(scan, **kwargs):
+def real_PI(scan, coords=None, **kwargs):
     """
     Applies a Proportional-Integral (PI) controller to a 2D scan array.
 
@@ -91,25 +91,30 @@ def real_PI(scan, **kwargs):
     scan_rate = float(kwargs.get('scan_rate', 0.5))
     sample_rate = float(kwargs.get('sample_rate', 2000))
 
-    # Initialize output array with the same shape as the input scan
-    outp = np.zeros_like(scan).T
-
     # Ensure that the input is a 2D array
     if len(scan.shape) != 2:
         raise ValueError("Input scan must be a 2D array.")
 
-    # Apply the PI controller to each row of the scan
-    for i, row in enumerate(scan.T):
-        row_time = resample_trace(row, scan_rate, sample_rate)
+    # Initialize output array with the same shape as the input scan
+    if coords is None:
+        outp = np.zeros_like(scan).T
+        for i, row in enumerate(scan.T):
+            row_time = resample_trace(row, scan_rate, sample_rate)
+            pi_out = PI_trace(row_time, P, I, length, dz)
+            mod_trace = resample_trace(pi_out, scan_rate, len(row) * scan_rate)
+            outp[i] = mod_trace
+        return outp.T
+    else:
+        _scan_traj = scan[coords[:,1], coords[:,0]]
+        number_of_rows = len(_scan_traj) / len(scan[0])
+        row_time = resample_trace(_scan_traj, scan_rate, sample_rate, number_of_rows)
         pi_out = PI_trace(row_time, P, I, length, dz)
-        mod_trace = resample_trace(pi_out, scan_rate, len(row)*scan_rate)
-        outp[i] = mod_trace
-    return outp.T
+        outp = resample_trace(pi_out, scan_rate, len(scan[0]) * scan_rate, number_of_rows)
+        return outp
 
 
 @jit(nopython=True, parallel=True)
 def scanning_trajectory(image, coords_ar, kernel):
-    image_height, image_width = image.shape
     kernel_height, kernel_width = kernel.shape
 
     pad_height = kernel_height // 2
@@ -174,7 +179,7 @@ def pad_image(image, pad_height, pad_width):
 
     return padded_image
 
-def resample_trace(array, scan_rate, sample_rate):
+def resample_trace(array, scan_rate, sample_rate, number_of_rows=1):
     """
     Resamples the input array to match a desired sampling rate.
 
@@ -194,7 +199,7 @@ def resample_trace(array, scan_rate, sample_rate):
         ValueError: If the calculated number of points to resample is not valid.
     """
     # Calculate the number of points needed for resampling
-    point_number = sample_rate / scan_rate
+    point_number = number_of_rows * sample_rate / scan_rate
 
     # Ensure the number of points is a valid integer and resample
     if point_number <= 0:

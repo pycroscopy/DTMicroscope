@@ -84,6 +84,7 @@ class AFM_Microscope(BaseMicroscope):
 
         #specify data acquisition rate for PI emulation
         self.sample_rate = 2000 #Hz
+        self.scan_rate = 0.5
 
     def setup_microscope(self, data_source='generate', dset_subset = None):
         """
@@ -163,7 +164,7 @@ class AFM_Microscope(BaseMicroscope):
             # Store indices and data based on the data type
             if data_type == sd.DataType['IMAGE']:
                 self.scan_ar.append(value.compute())
-                self._im_ind[key] = len(self.scan_ar)-1
+                self._im_ind[key] = i#len(self.scan_ar)-1
             elif data_type == sd.DataType['SPECTRUM'] or data_type==sd.DataType['SPECTRAL_IMAGE']:
                 self._sp_ind[key] = i
             elif data_type == sd.DataType['POINT_CLOUD']:
@@ -233,7 +234,7 @@ class AFM_Microscope(BaseMicroscope):
         ]
         return info_list
 
-    def get_scan(self, channels = None, modification=None, scan_rate = 0.5):
+    def get_scan(self, channels = None, modification=None, scan_rate = None):
         """
             Retrieves scan data from the dataset, optionally filtered by specific channels.
 
@@ -250,6 +251,8 @@ class AFM_Microscope(BaseMicroscope):
         # Return all image channels if channels is None
         if channels is None:
             return self.scan_ar
+
+        self.scan_rate = scan_rate if scan_rate is not None else self.scan_rate or 0.5
 
         # Ensure channels is a list
         if not isinstance(channels, list):
@@ -276,31 +279,14 @@ class AFM_Microscope(BaseMicroscope):
 
         # Return the filtered scan data based on the valid indices
         if modification is None:
-            return self.scan_ar[ind_list]
-
+            _res_scan = self.scan_ar[ind_list]
         elif type(modification) is list:
-            current_scan = self.scan_ar[ind_list]
-
-            for eff_dict in modification:
-
-                if type(eff_dict) is dict:
-                    kwargs = eff_dict['kwargs']
-                    if eff_dict['effect'] != 'real_PID':
-                        modified_scan = np.array([scanning(ar,
-                                                           eff_dict['effect'](**kwargs)) for ar in current_scan])
-                        current_scan = modified_scan
-                    else:
-                        kwargs = eff_dict['kwargs']
-                        kwargs['scan_rate'] = scan_rate
-                        kwargs['sample_rate'] = float(kwargs.get('sample_rate', self.sample_rate))
-                        modified_scan = np.array([real_PI(ar, **kwargs) for ar in current_scan])
-                        current_scan = modified_scan
-
-                    return current_scan
-                else:
-                    raise ValueError(r'''Attribute 'modification' should be list of dict''')
+            _scan = self.scan_ar[ind_list]
+            _res_scan = self._apply_modification(_scan, modification, coords=None)
         else:
             raise ValueError(r'''Attribute 'modification' should be list of dict''')
+
+        return _res_scan
 
     def scanning_emulator(self, direction='horizontal', channels=None, scan_rate=None,
                           modification=None):
@@ -315,8 +301,8 @@ class AFM_Microscope(BaseMicroscope):
         Yields:
             numpy.ndarray: A 2D slice of the scan data for each step of the emulated scan.
         """
-        if scan_rate == None:
-            scan_rate = 0.5
+        self.scan_rate = scan_rate if scan_rate is not None else self.scan_rate or 0.5
+
         # Get the scan data from the provided channels
         _ar_data = self.get_scan(channels, scan_rate=scan_rate, modification=modification)
 
@@ -378,81 +364,112 @@ class AFM_Microscope(BaseMicroscope):
             numpy.ndarray: A 2D slice (channels, line) of the scan data along the specified line.
         """
 
-        _scan_ar = self.get_scan(channels=channels, modification=modification)
+        _scan_ar = self.get_scan(channels=channels)
         if direction == 'horizontal':
-            self.go_to(x = self.x_coords.min(), y=coord)
+            self.go_to(x=self.x_coords.min(), y=coord)
             _ind = np.argmin(np.abs(self.y_coords - coord))
-            _line_ar = _scan_ar[:,_ind,:]
-
+            _coords = self._bresenham_line(0, _ind,  _scan_ar.shape[2]-1, _ind)
         elif direction == 'vertical':
             self.go_to(x=coord, y=self.y_coords.max())
             _ind = np.argmin(np.abs(self.x_coords - coord))
-            _line_ar = _scan_ar[:,:,_ind]
-
+            _coords = self._bresenham_line(_ind, 0, _ind, _scan_ar.shape[1]-1)
         else:
             raise ValueError("The 'direction' must be either 'horizontal' or 'vertical'.")
+
+        if modification is None:
+            _line_ar = _scan_ar[:, _coords[:,1], _coords[:,0]]
+        elif type(modification) is list:
+            _line_ar = self._apply_modification(_scan_ar, modification, _coords)
+        else:
+            raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
         return _line_ar
 
     def scan_arbitrary_path(self, path_points, channels=None, modification=None):
         """
-            Scans the data along an arbitrary path defined by real-world coordinates and returns the corresponding
-            scan values. The function corrects any out-of-range coordinates by clamping them to the closest valid points.
+        Scans the data along an arbitrary path defined by real-world coordinates and returns the corresponding
+        scan values. Corrects out-of-range coordinates by clamping them to the closest valid points.
 
-            Parameters:
-                path_points (list or np.ndarray): A list or numpy array of shape (N, 2) with N points representing
-                                                  (x, y) coordinates along the desired path. The path must have at least
-                                                  two points.
-                channels (list, optional): A list of channel names to filter the scan data. If None, all channels are used.
+        Parameters:
+        ----------
+        path_points : list or np.ndarray
+            A list or numpy array of shape (N, 2) with N points representing (x, y) coordinates along the desired path.
+            The path must have at least two points.
+        channels : list, optional
+            A list of channel names to filter the scan data. If None, all channels are used.
 
-            Returns:
-                np.ndarray: A 2D numpy array of scan data extracted from the specified path. The output shape will be
-                            (channels, len(path)), where each row corresponds to the channel values along the path.
+        Returns:
+        -------
+        np.ndarray
+            A 2D numpy array of scan data extracted from the specified path. The output shape will be (channels, len(path)),
+            where each row corresponds to the channel values along the path.
         """
 
-        if not isinstance(path_points, (list, np.ndarray)):
-            raise TypeError("path_points must be a numpy array or list with coordinates.")
-
+        # Validate input path_points
         path_points = np.array(path_points)
-
         if path_points.ndim != 2 or path_points.shape[1] != 2 or path_points.shape[0] < 2:
             raise ValueError("path_points must have shape (N, 2), where N > 1 is the number of points.")
 
         # Get the scan array with selected channels
-        _scan_ar = self.get_scan(channels=channels, modification=modification)
+        _scan_ar = self.get_scan(channels=channels)
 
-        # Copy and correct out-of-range coordinates
-        corrected_path_points = np.copy(path_points)
+        # Correct out-of-range coordinates using vectorized clipping
+        corrected_path_points = np.clip(path_points, [self.x_min, self.y_min], [self.x_max, self.y_max])
 
-        # Correct out-of-range x coordinates
-        x_out_of_range = (corrected_path_points[:, 0] < self.x_min) | (corrected_path_points[:, 0] > self.x_max)
-        if np.any(x_out_of_range):
-            print("Warning: Some x coordinates are out of range. Clamping to closest valid points.")
-            corrected_path_points[:, 0] = np.clip(corrected_path_points[:, 0], self.x_min, self.x_max)
-
-        # Correct out-of-range y coordinates
-        y_out_of_range = (corrected_path_points[:, 1] < self.y_min) | (corrected_path_points[:, 1] > self.y_max)
-        if np.any(y_out_of_range):
-            print("Warning: Some y coordinates are out of range. Clamping to closest valid points.")
-            corrected_path_points[:, 1] = np.clip(corrected_path_points[:, 1], self.y_min, self.y_max)
-
-        # Convert real coordinates to pixel coordinates
+        # Convert corrected real-world coordinates to pixel coordinates
         pixel_coords = self._real_to_pixel(corrected_path_points)
 
-        # Initialize array for storing path pixel coordinates
-        path_pixel_coords = []
+        # Get all pixels along the path using Bresenham's line algorithm
+        path_pixel_coords = np.array([self._bresenham_line(*pixel_coords[i], *pixel_coords[i + 1])
+                                      for i in range(len(pixel_coords) - 1)], dtype=object)
 
-        # Use Bresenham line algorithm to get all pixels along the path
-        for i in range(len(pixel_coords) - 1):
-            x0, y0 = pixel_coords[i]
-            x1, y1 = pixel_coords[i + 1]
-            path = self._bresenham_line(x0, y0, x1, y1)
-            path_pixel_coords.extend(path)
+        # Flatten the list of lists into an array of pixel coordinates
+        path_pixel_coords = np.vstack(path_pixel_coords).astype(int)
 
-        path_pixel_coords = np.array(path_pixel_coords).astype(int)
+        # Extract and return the scan data along the calculated path
+        if modification is None:
+            _res_ar = _scan_ar[:, path_pixel_coords[:, 0], path_pixel_coords[:, 1]]
+        elif type(modification) is list:
+            _res_ar = self._apply_modification(_scan_ar, modification, path_pixel_coords)
+        else:
+            raise ValueError(r'''Attribute 'modification' should be list of dict''')
+        return _res_ar
 
-        # Return the scan data along the calculated path
-        return _scan_ar[:, path_pixel_coords[:, 0], path_pixel_coords[:, 1]]
+    def _apply_modification(self, scan, modification, coords=None):
+        if coords is None: #apply to entire scan
+            for eff_dict in modification:
+                if type(eff_dict) is dict:
+                    kwargs = eff_dict['kwargs']
+
+                    if eff_dict['effect'] == "real_tip":
+                        res_scan = np.array([scanning(ar, real_tip(**kwargs)) for ar in scan])
+                    elif eff_dict['effect'] == "tip_doubling":
+                        res_scan = np.array([scanning(ar, tip_doubling(**kwargs)) for ar in scan])
+                    elif eff_dict['effect'] == "real_PID":
+                        kwargs['scan_rate'] = float(kwargs.get('scan_rate', self.scan_rate))
+                        kwargs['sample_rate'] = float(kwargs.get('sample_rate', self.sample_rate))
+                        res_scan = np.array([real_PI(ar, **kwargs) for ar in scan])
+                    else:
+                        raise ValueError(f"The effect {eff_dict['effect']} is not supported. "
+                                         f"The supported effects are 'real_tip', 'tip_doubling', 'real_PID'")
+                    return res_scan
+        else: #apply to trajectory specified by coords
+            for eff_dict in modification:
+                if type(eff_dict) is dict:
+                    kwargs = eff_dict['kwargs']
+
+                    if eff_dict['effect'] == "real_tip":
+                        line_ar = np.array([scanning_trajectory(ar, coords, real_tip(**kwargs)) for ar in scan])
+                    elif eff_dict['effect'] == "tip_doubling":
+                        line_ar = np.array([scanning_trajectory(ar, coords, tip_doubling(**kwargs)) for ar in scan])
+                    elif eff_dict['effect'] == "real_PID":
+                        kwargs['scan_rate'] = float(kwargs.get('scan_rate', self.scan_rate))
+                        kwargs['sample_rate'] = float(kwargs.get('sample_rate', self.sample_rate))
+                        line_ar = np.array([real_PI(ar, coords, **kwargs) for ar in scan])
+                    else:
+                        raise ValueError(f"The effect {eff_dict['effect']} is not supported. "
+                                         f"The supported effects are 'real_tip', 'tip_doubling', 'real_PID'")
+                    return line_ar
 
     def get_spectrum(self, location=None, channel=None):
         """
