@@ -132,7 +132,16 @@ class MicroscopeServer(object):
     #     """
     #     y = self.microscope.y
     #     return y
-    
+    @property
+    def scan_rate(self):
+        value = self.microscope.scan_rate
+        return value
+
+    @property
+    def sample_rate(self):
+        value = self.microscope.sample_rate
+        return value
+
     @property
     def x(self):
         value = self.microscope.x
