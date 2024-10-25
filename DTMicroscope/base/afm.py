@@ -103,6 +103,8 @@ class AFM_Microscope(BaseMicroscope):
         elif self.data_source in self.data_dict['Single_Datasets']:
             # Load pre-existing data
             self.process_dataset(dset = self.data_dict['Single_Datasets'][self.data_source])
+        else:
+            self.process_dataset(dset = self.data_dict)
 
     def _generate_synthetic_data(self, ):
         dataset = None
