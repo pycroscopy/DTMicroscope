@@ -77,7 +77,7 @@ class MicroscopeServer(object):
         
         Returns: None
         """
-        self.microscope.setup_microscope(data_source=data_source, dset_subset = None)
+        self.microscope.setup_microscope(data_source=data_source, dset_subset = dset_subset)
         
     # def data_dict(self):
     #     """
