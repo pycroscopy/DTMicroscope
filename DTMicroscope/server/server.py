@@ -194,7 +194,8 @@ class MicroscopeServer(object):
         """
         return self.microscope.y_max
     
-    def get_scan(self, channels = ['HeightRetrace','image_dataset_1'], mod_string = None, mod_kwargs = None):
+    #def get_scan(self, channels = ['HeightRetrace','image_dataset_1'], mod_string = None, mod_kwargs = None):
+    def get_scan(self, channels = None, modification=None, scan_rate = None):
         """
         Gets the scan by incorporating appropriate modification
         Prams:
@@ -208,25 +209,28 @@ class MicroscopeServer(object):
         Returns:
             data : numpy array
         """
-        if  mod_string is None:
-            modification = None
-            data = self.microscope.get_scan(channels=channels, modification=modification)
-
-        elif mod_string == "real_tip":
-            modification = [{'effect': real_tip, 'kwargs': mod_kwargs},]
-            data = self.microscope.get_scan(channels=channels, modification=modification)
-
-        elif mod_string == "tip_doubling":
-            modification = [{'effect': tip_doubling, 'kwargs': mod_kwargs},]
-            data = self.microscope.get_scan(channels=channels, modification=modification)
-            
-        elif mod_string == "real_PID":
-            modification = [{'effect': 'real_PID', 'kwargs': mod_kwargs},]
-            data = self.microscope.get_scan(channels=channels, modification=modification)
+        # if  mod_string is None:
+        #     modification = None
+        #     data = self.microscope.get_scan(channels=channels, modification=modification)
+        #
+        # elif mod_string == "real_tip":
+        #     modification = [{'effect': real_tip, 'kwargs': mod_kwargs},]
+        #     data = self.microscope.get_scan(channels=channels, modification=modification)
+        #
+        # elif mod_string == "tip_doubling":
+        #     modification = [{'effect': tip_doubling, 'kwargs': mod_kwargs},]
+        #     data = self.microscope.get_scan(channels=channels, modification=modification)
+        #
+        # elif mod_string == "real_PID":
+        #     modification = [{'effect': 'real_PID', 'kwargs': mod_kwargs},]
+        #     data = self.microscope.get_scan(channels=channels, modification=modification)
+        data = self.microscope.get_scan(channels=channels, modification=modification, scan_rate = scan_rate)
 
         return serialize_array(data)
 
-    def scan_individual_line(self, direction = "vertical", coord = -1e-6, channels=['Amplitude1Retrace', 'Phase1Retrace'], mod_string = None, mod_kwargs = None):
+    #def scan_individual_line(self, direction = "vertical", coord = -1e-6, channels=['Amplitude1Retrace', 'Phase1Retrace'], mod_string = None, mod_kwargs = None):
+    def scan_individual_line(self, direction='horizontal', coord=0, channels=None,
+                             modification=None):
         """
         Params:
             direction : string
@@ -244,23 +248,24 @@ class MicroscopeServer(object):
         
         """
         
-        if mod_string == None:
-            modification = None
-            line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
-
-        elif mod_string == "real_tip":
-            modification = [{'effect': real_tip, 'kwargs': mod_kwargs},]
-            line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
-
-        elif mod_string == "tip_doubling":
-            modification = [{'effect': tip_doubling, 'kwargs': mod_kwargs},]
-            line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
+        # if mod_string == None:
+        #     modification = None
+        #     line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
+        #
+        # elif mod_string == "real_tip":
+        #     modification = [{'effect': real_tip, 'kwargs': mod_kwargs},]
+        #     line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
+        #
+        # elif mod_string == "tip_doubling":
+        #     modification = [{'effect': tip_doubling, 'kwargs': mod_kwargs},]
+        #     line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
             
         # elif mod_string == "tip_doubling":
         #     modification = [{'effect': , 'kwargs': mod_kwargs},]
         #     line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
-            
 
+        line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels,
+                                                    modification=modification)
         return serialize_array(line)
     
     def scanning_emulator(self, scanning_rate=5):
@@ -282,7 +287,7 @@ class MicroscopeServer(object):
         
 
     
-    def scan_arbitrary_path(self, path_points = np.array([[-2e-6,2e-6],[1e-6,1.8e-6],[2.1e-6,2e-6]]), channels=['Amplitude1Retrace']):
+    def scan_arbitrary_path(self, path_points = np.array([[-2e-6,2e-6],[1e-6,1.8e-6],[2.1e-6,2e-6]]), channels=['Amplitude1Retrace'], modification=None):
         """
         Params:
             path_points : list -> arrays not allowed
@@ -292,7 +297,7 @@ class MicroscopeServer(object):
             line : array
         """
         path_points = np.array(path_points)
-        line = self.microscope.scan_arbitrary_path(path_points=path_points, channels=channels)
+        line = self.microscope.scan_arbitrary_path(path_points=path_points, channels=channels, modification=modification)
         return serialize_array(line)
     
     def get_spectrum(self):
