@@ -70,14 +70,14 @@ class MicroscopeServer(object):
         print(f"Type of microscope initialized-{microscope}")
         pass
     
-    def setup_microscope(self, data_source = 'Compound_Dataset_1'):
+    def setup_microscope(self, data_source = 'Compound_Dataset_1', dset_subset = None):
         """
         Parmas:
             datasource : string
         
         Returns: None
         """
-        self.microscope.setup_microscope(data_source=data_source)
+        self.microscope.setup_microscope(data_source=data_source, dset_subset = None)
         
     # def data_dict(self):
     #     """
