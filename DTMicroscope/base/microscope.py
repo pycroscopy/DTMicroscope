@@ -57,11 +57,14 @@ class BaseMicroscope(object):
         self.data_source = 'None' #enable people to provide it, generate it or use pre-acquired existing data
         self.instrument_type = 'generic' #could be STEM, STM, AFM
         self.log = [] #microscope should have a log
+<<<<<<< HEAD
         self.latency = 0 #if nonzero then the microscope will use this value for the latency when generating outputs
         self.data_dict = {}
         self.data_path = data_path
         if self.data_path is not None:
             self._sort_datasets() #will put results into self.data_dict
+=======
+>>>>>>> f1925882f2f99d002e281c3319573194503fc40e
 
     def _sort_datasets(self):
         """

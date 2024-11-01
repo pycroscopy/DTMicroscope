@@ -155,8 +155,12 @@ dmypy.json
 cython_debug/
 .DS_Store
 
+<<<<<<< HEAD
 *.DS_Store
 *.h5
+=======
+
+>>>>>>> f1925882f2f99d002e281c3319573194503fc40e
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

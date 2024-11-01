@@ -23,7 +23,8 @@ setup(
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            'run_server=DTMicroscope.commands:run_server',  # Point to the correct module and function
+            'run_server_afm=DTMicroscope.commands:run_server_afm', 
+            'run_server_stem=DTMicroscope.commands:run_server_stem',   # Point to the correct module and function
         ],
     },
 )
