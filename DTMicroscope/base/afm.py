@@ -236,7 +236,7 @@ class AFM_Microscope(BaseMicroscope):
         ]
         return info_list
 
-    def get_scan(self, channels = None, modification=None, scan_rate = None):
+    def get_scan(self, channels = None, modification=None, scan_rate = None, trace = 'forward', direction='horizontal'):
         """
             Retrieves scan data from the dataset, optionally filtered by specific channels.
 
@@ -284,11 +284,17 @@ class AFM_Microscope(BaseMicroscope):
             _res_scan = self.scan_ar[ind_list]
         elif type(modification) is list:
             _scan = self.scan_ar[ind_list]
+            if direction == 'vertical':
+                _scan = np.transpose(_scan, (0,2,1))
+            if trace == 'backward':
+                _scan = _scan[:,::-1]
             _res_scan = self._apply_modification(_scan, modification, coords=None)
         else:
             raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
-        return _res_scan
+        _res_scan = _res_scan if trace == 'forward' else _res_scan[:,::-1]
+
+        return _res_scan if direction == 'horizontal' else np.transpose(_res_scan, (0, 2, 1))
 
     def scanning_emulator(self, direction='horizontal', channels=None, scan_rate=None,
                           modification=None):
@@ -349,7 +355,7 @@ class AFM_Microscope(BaseMicroscope):
         self.y = max(self.y_coords.min(), min(y, self.y_coords.max()))
         return True
 
-    def scan_individual_line(self, direction='horizontal', coord=0, channels=None,
+    def scan_individual_line(self, direction='horizontal', trace = 'forward', coord=0, channels=None,
                              modification=None):
         """
         Extracts a specific line of data from the scan array, either horizontally or vertically,
@@ -368,13 +374,29 @@ class AFM_Microscope(BaseMicroscope):
 
         _scan_ar = self.get_scan(channels=channels)
         if direction == 'horizontal':
-            self.go_to(x=self.x_coords.min(), y=coord)
+            # Set the target x-coordinate based on the trace direction
+            target_x = self.x_coords.min() if trace == 'backward' else self.x_coords.max()
+            self.go_to(x=target_x, y=coord)
+
+            # Find the closest y-coordinate index to the specified coordinate
             _ind = np.argmin(np.abs(self.y_coords - coord))
-            _coords = self._bresenham_line(0, _ind,  _scan_ar.shape[2]-1, _ind)
+
+            # Determine the start and end points for the Bresenham line based on the horizontal direction
+            start_x, end_x = (0, _scan_ar.shape[2] - 1) if trace == 'forward' else (_scan_ar.shape[2] - 1, 0)
+            _coords = self._bresenham_line(start_x, _ind, end_x, _ind)
+
         elif direction == 'vertical':
-            self.go_to(x=coord, y=self.y_coords.max())
+            # Set the target y-coordinate based on the trace direction
+            target_y = self.y_coords.max() if trace == 'backward' else self.y_coords.min()
+            self.go_to(x=coord, y=target_y)
+
+            # Find the closest x-coordinate index to the specified coordinate
             _ind = np.argmin(np.abs(self.x_coords - coord))
-            _coords = self._bresenham_line(_ind, 0, _ind, _scan_ar.shape[1]-1)
+
+            # Determine the start and end points for the Bresenham line based on the trace direction
+            start_y, end_y = (0, _scan_ar.shape[1] - 1) if trace == 'forward' else (_scan_ar.shape[1] - 1, 0)
+            _coords = self._bresenham_line(_ind, start_y, _ind, end_y)
+
         else:
             raise ValueError("The 'direction' must be either 'horizontal' or 'vertical'.")
 
@@ -385,7 +407,7 @@ class AFM_Microscope(BaseMicroscope):
         else:
             raise ValueError(r'''Attribute 'modification' should be list of dict''')
 
-        return _line_ar
+        return _line_ar if trace == 'forward' else _line_ar[:,::-1]
 
     def scan_arbitrary_path(self, path_points, channels=None, modification=None):
         """
