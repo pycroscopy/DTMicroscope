@@ -10,13 +10,21 @@ with open(os.path.join(here, 'DTMicroscope/__version__.py')) as f:
 with open("README.md", "r") as fr:
     long_description = fr.read()
 
-setup(name='DTMicroscope',
-      version=__version__,
-      description='Digital Twin Microscope',
-      long_description = long_description,
-      long_description_content_type="text/markdown",
-      url='github.com/pycroscopy/DTMicroscope',
-      author='Rama Vasudevan, Boris Slautin, Utkarsh Pratiush, Gerd Duscher',
-      license='MIT',
-      packages=find_packages(exclude='tests'),
-      zip_safe=False)
+setup(
+    name='DTMicroscope',
+    version=__version__,
+    description='Digital Twin Microscope',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url='https://github.com/pycroscopy/DTMicroscope',
+    author='Rama Vasudevan, Boris Slautin, Utkarsh Pratiush, Gerd Duscher',
+    license='MIT',
+    packages=find_packages(exclude='tests'),
+    zip_safe=False,
+    entry_points={
+        'console_scripts': [
+            'run_server_afm=DTMicroscope.commands:run_server_afm', 
+            'run_server_stem=DTMicroscope.commands:run_server_stem',   # Point to the correct module and function
+        ],
+    },
+)
