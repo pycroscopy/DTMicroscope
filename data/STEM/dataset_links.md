@@ -1,5 +1,10 @@
 ## STEM:
 
+Q. How to load in colab notebook?
+        - Visit the page and copy the link
+        - use gdown in colab notebook
+
+
 
 ### 1) Has Graphene datasets (HAADF, time series HAADF's, spectrum images)- [Gdrive link](https://drive.google.com/drive/folders/1u0z4pkZJN8Q00zt_QyEWHpckuFJ_z3iZ?usp=drive_link) - credits: Austin Houston
 
@@ -32,11 +37,6 @@ Few examples:
 
 
 ![alt text](../../assets/stem_eels_si_1.png)
-
-
-Q. How to load in colab notebook?
-        - Visit the page and copy the link
-        - use gdown in colab notebook
 
 
 example: 
