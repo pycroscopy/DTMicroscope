@@ -65,60 +65,14 @@ class BaseMicroscope(object):
 
     def _sort_datasets(self):
         """
-        Given the file path, we need to parse it to determine which files belong together to be grouped as compound datasets
+        Create the data dictionary
         These are datasets for which images have associated spectra, for instance.
         Returns: - (None): Sets the data dictionary (self.data_dict)
         """
         
         reader = sr.NSIDReader(self.data_path)
         datasets = reader.read()
-
-        grouped_dsets = []
-        single_dsets = []
-
-        #First, make each datasets into a dictionary with channels
-        #We can identify which dataset has channels by collecting all likewise datasets with teh same uuids.
-
-        dataset_by_channels = {}
-        all_uuid_vals = []
-        counter=0
-        for ind,key in enumerate(datasets):
-            
-            uuid_val = datasets[key].original_metadata['uuid']
-            if uuid_val not in all_uuid_vals:
-                dataset_ch = {'Channel_0': datasets[key]}
-                channel_val=1
-                for new_key in datasets:
-                    if datasets[new_key].original_metadata['uuid'] == uuid_val: 
-                        new_channel = 'Channel_'+str(channel_val)
-                        dataset_ch[new_channel] = datasets[new_key]
-                        channel_val+=1
-                    else:
-                        pass
-                all_uuid_vals.append(uuid_val)
-                dataset_by_channels['Dataset_'+str(counter)] = dataset_ch
-                counter+=1
-
-        for key in dataset_by_channels:
-            m=0
-            for next_key in dataset_by_channels[key].keys():
-                if ('associated-image' in dataset_by_channels[key][next_key].original_metadata.keys()) or \
-                ('associated-spec' in dataset_by_channels[key][next_key].original_metadata.keys()):
-                    if m==0:
-                        grouped_dsets.append(dataset_by_channels[key])
-                        m+=1
-            else:
-                single_dsets.append(dataset_by_channels[key])
-
-        all_datasets = {}
-        all_datasets['Compound_Datasets'] = self._find_linked_datasets(grouped_dsets)
-
-        #add the single datasets
-        all_datasets['Single_Datasets'] = {}
-        for ind,ds in enumerate(single_dsets):
-            all_datasets['Single_Datasets']['Single_Dataset_'+str(ind)] = ds
-        
-        self.data_dict = all_datasets
+        self.data_dict = datasets
 
         return 
     
