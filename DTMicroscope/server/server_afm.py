@@ -335,7 +335,7 @@ class MicroscopeServer(object):
     
 def main_server():
     host = "0.0.0.0"
-    daemon = Pyro5.api.Daemon( port=9091)  
+    daemon = Pyro5.api.Daemon( port=9092)  #9092=AFM, 9091 = STEM
     uri = daemon.register(MicroscopeServer, objectId="microscope.server")
     print("Server is ready. Object uri =", uri)
     daemon.requestLoop()
