@@ -86,7 +86,7 @@ class AFM_Microscope(BaseMicroscope):
         self.sample_rate = 2000 #Hz
         self.scan_rate = 0.5
 
-    def setup_microscope(self, data_source='generate', dset_subset = None):
+    def setup_microscope(self, data_source=None, dset_subset = None):
         """
         Initializes the microscope setup by either generating synthetic data or loading pre-existing data.
 
@@ -96,13 +96,15 @@ class AFM_Microscope(BaseMicroscope):
         self.data_source = data_source
         if self.data_source == 'generate':
             pass #TODO
-        elif self.data_source in self.data_dict['Compound_Datasets']:
+        #elif self.data_source in self.data_dict['Compound_Datasets']:
+        #    # Load pre-existing data
+        #    self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source], compound = True, dset_subset=dset_subset)
+#
+#        elif self.data_source in self.data_dict['Single_Datasets']:
             # Load pre-existing data
-            self.process_dataset(dset = self.data_dict['Compound_Datasets'][self.data_source], compound = True, dset_subset=dset_subset)
-
-        elif self.data_source in self.data_dict['Single_Datasets']:
-            # Load pre-existing data
-            self.process_dataset(dset = self.data_dict['Single_Datasets'][self.data_source])
+#            self.process_dataset(dset = self.data_dict['Single_Datasets'][self.data_source])
+        else:
+            self.process_dataset(dset = self.data_dict)
 
     def _generate_synthetic_data(self, ):
         dataset = None
@@ -508,7 +510,7 @@ class AFM_Microscope(BaseMicroscope):
             _y = point_cloud[_closest_ind].compute()
 
             # Get the spectral dimension
-            _spectral_dim = point_cloud.get_spectrum_dims()
+            _spectral_dim = point_cloud.get_spectral_dims()
             _spec_dim = point_cloud.get_dimension_by_number(_spectral_dim)[0].values
 
         elif len(self._sp_ind)>0:
@@ -531,7 +533,7 @@ class AFM_Microscope(BaseMicroscope):
             _y = spectrum[_closest_ind_x, _closest_ind_y].compute()
 
             # Get the spectral dimension
-            _spectral_dim = spectrum.get_spectrum_dims()
+            _spectral_dim = spectrum.get_spectral_dims()
             _spec_dim = spectrum.get_dimension_by_number(_spectral_dim)[0].values
             
         else:
