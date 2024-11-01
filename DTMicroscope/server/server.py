@@ -146,8 +146,6 @@ class MicroscopeServer(object):
     def x(self):
         value = self.microscope.x
         return value
-        
-        
     
     @property
     def y(self):
@@ -292,9 +290,6 @@ class MicroscopeServer(object):
         for line in gen:
             # Convert numpy arrays to lists before yielding them
             yield [l.tolist() for l in line]  # Convert each numpy array to a list
-
-        
-
     
     def scan_arbitrary_path(self, path_points = np.array([[-2e-6,2e-6],[1e-6,1.8e-6],[2.1e-6,2e-6]]), channels=['Amplitude1Retrace'], modification=None):
         """
