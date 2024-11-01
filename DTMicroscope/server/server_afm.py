@@ -202,7 +202,7 @@ class MicroscopeServer(object):
         return self.microscope.y_max
     
     #def get_scan(self, channels = ['HeightRetrace','image_dataset_1'], mod_string = None, mod_kwargs = None):
-    def get_scan(self, channels = None, modification=None, scan_rate = None):
+    def get_scan(self, channels = None, modification=None, scan_rate = None, direction='horizontal', trace='forward'):
         """
         Gets the scan by incorporating appropriate modification
         Prams:
@@ -231,13 +231,14 @@ class MicroscopeServer(object):
         # elif mod_string == "real_PID":
         #     modification = [{'effect': 'real_PID', 'kwargs': mod_kwargs},]
         #     data = self.microscope.get_scan(channels=channels, modification=modification)
-        data = self.microscope.get_scan(channels=channels, modification=modification, scan_rate = scan_rate)
+        data = self.microscope.get_scan(channels=channels, modification=modification, scan_rate = scan_rate,
+                                        direction=direction, trace=trace)
 
         return serialize_array(data)
 
     #def scan_individual_line(self, direction = "vertical", coord = -1e-6, channels=['Amplitude1Retrace', 'Phase1Retrace'], mod_string = None, mod_kwargs = None):
     def scan_individual_line(self, direction='horizontal', coord=0, channels=None,
-                             modification=None):
+                             modification=None, trace='forward'):
         """
         Params:
             direction : string
@@ -272,7 +273,7 @@ class MicroscopeServer(object):
         #     line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels, modification=modification)
 
         line = self.microscope.scan_individual_line(direction=direction, coord=coord, channels=channels,
-                                                    modification=modification)
+                                                    modification=modification, trace=trace)
         return serialize_array(line)
     
     def scanning_emulator(self, scanning_rate=5):
