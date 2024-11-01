@@ -14,3 +14,4 @@ def run_server():
     subprocess.Popen(command, shell=True)
 
     print("Server started and running in the background. Logs are being written to server.log.")
+        
