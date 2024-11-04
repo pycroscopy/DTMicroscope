@@ -79,6 +79,29 @@ class MicroscopeServer(object):
         data = self.microscope.get_point_data(spectrum_image_index, x, y)
         return serialize_array(data)
     
+    def get_spectrum_image(self, spectrum_image_index = "Channel_001"):
+        """
+        To calculate Errors for active learning experiments(DKL)
+        TODO: This is more application oriented so need to think of a better structure
+        Args:
+            spectrum_image_index: Which index in sidpy dataset is spectrum index
+            
+        Returns: np.array -> shape is 3 dimensional
+        """        
+        data = self.microscope.get_spectrum_image(spectrum_image_index)
+        return serialize_array(data)
+    
+    def get_spectrum_image_e_axis(self, spectrum_image_index = "Channel_001"):
+        """
+        To get scalarizers for active learning experiments(DKL)
+        TODO: This is more application oriented so need to think of a better structure
+        Args:
+            spectrum_image_index (str, optional): _description_. Defaults to "Channel_001".
+        """
+        data = self.microscope.get_spectrum_image_e_axis(spectrum_image_index)
+        return serialize_array(data)
+
+    
     
 def main_server():
     host = "0.0.0.0"
