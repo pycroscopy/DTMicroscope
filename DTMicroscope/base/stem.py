@@ -109,11 +109,11 @@ class STEM(BaseMicroscope):
         ]
         return info_list
     
-    def get_point_data(self, spectrum_image_key, x, y, **args):
+    def get_point_data(self, spectrum_image_key, x, y):
         """emulates the data acquisition at a specific point
 
         Args:
-            spectrum_image_index: Which index in sidpy dataset is spectrum index
+            spectrum_image_key: Which index in sidpy dataset is spectrum index
             x : position in x
             y : position in y
 
@@ -125,6 +125,29 @@ class STEM(BaseMicroscope):
         """
         return np.array(self.dataset[spectrum_image_key][x][y])
     
+    
+    def get_spectrum_image(self, spectrum_image_key="Channel_001"):
+        """
+        We need to calculate Errors for active learning experiments(DKL)
+        Args:
+            spectrum_image_index: Which index in sidpy dataset is spectrum index
+            
+        Returns: np.array -> shape is 3 dimensional
+        """
+
+        return np.array(self.dataset[spectrum_image_key])
+    
+    def get_spectrum_image_e_axis(self, spectrum_image_key = "Channel_001"):
+        """
+        To figure out scalarizers for active learning experiments(DKL). We need the energy range.
+        TODO: This is more application oriented so need to think of a better structure
+        Args:
+            spectrum_image_index (str, optional)
+        Returns: np.array
+        """
+        return self.dataset[spectrum_image_key].dim_2.values
+    
+        
     def pixel_size_X(self):
         return
 
