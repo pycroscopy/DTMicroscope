@@ -261,26 +261,34 @@ line3_ph = np.array([123.34255981445312,
  -78.67002868652344,
  38.925655364990234])
 
+dataset_info_list = [('channels',
+  ['Channel_000',
+   'Channel_001',
+   'Channel_002',
+   'Channel_003',
+   'Channel_004',
+   'Channel_005',
+   'Channel_006']),
+ ('signals',
+  ['HeightRetrace',
+   'Amplitude1Retrace',
+   'Amplitude2Retrace',
+   'Phase1Retrace',
+   'Phase2Retrace',
+   'FrequencyRetrace',
+   'Response']),
+ ('units', ['m', 'm', 'm', 'deg', 'deg', 'm', 'a.u.']),
+ ('scans', [0, 1, 2, 3, 4, 5]),
+ ('spectra', []),
+ ('point_clouds', [6])]
+
 data_path = r'datasets/dset_spm1.h5'
 class TestAFM_Microscope(unittest.TestCase):
 
     def setUp(self):
         """Initialize the AFM_Microscope instance before each test."""
         self.afm = AFM_Microscope(data_path = data_path)
-        self.afm.setup_microscope(data_source='Compound_Dataset_1', dset_subset='image_dataset_0')
-
-#         # Creating dummy coordinates for the test
-#         self.afm.x_coords = np.linspace(0, 1, 100)
-#         self.afm.y_coords = np.linspace(0, 1, 100)
-#
-#         # Creating a dummy dataset with simple values for testing purposes
-#         self.afm.dataset = {
-#             "image_channel": sd.Dataset.from_array(np.random.rand(100, 100), name="test_image")
-#         }
-#
-#         # Assume self.dataset setup with proper sidpy dataset object and data types
-#         self.afm._im_ind = {"image_channel": 0}
-#         self.afm.scan_ar = np.random.rand(1, 100, 100)
+        self.afm.setup_microscope()
 #
     def test_go_to_within_range(self):
         """Test moving the probe to a valid (x, y) location within the range."""
@@ -298,8 +306,8 @@ class TestAFM_Microscope(unittest.TestCase):
         """Test the scanning emulator with horizontal scanning."""
         slices = list(self.afm.scanning_emulator(direction='horizontal'))
         self.assertEqual(len(slices), 256)  # Expecting 100 slices for the 100x100 grid
-        self.assertEqual(len(slices[0]), 7)
-        self.assertTrue(np.array_equal(slices[2][5], line3_ph))
+        self.assertEqual(len(slices[0]), 6)
+        self.assertTrue(np.array_equal(slices[2][4], line3_ph))
 #
     def test_scan_individual_line(self):
         """Test scanning a specific line in the dataset."""
@@ -325,21 +333,25 @@ class TestAFM_Microscope(unittest.TestCase):
         self.assertEqual(scan_data.shape, (1, 256, 256))
         scan_data = self.afm.get_scan(['HeightRetrace', 'ddd'])
         self.assertEqual(scan_data.shape, (1, 256, 256))
-        scan_data = self.afm.get_scan(['HeightRetrace', 'Channel_0'])
+        scan_data = self.afm.get_scan(['HeightRetrace', 'Channel_000'])
         self.assertEqual(scan_data.shape, (2, 256, 256))
 #
-#     def test_get_spectrum(self):
-#         """Test retrieving spectrum data at a specific location."""
-#         spectrum, data = self.afm.get_spectrum(location=(0.5, 0.5), channel=None)
-#         self.assertIsNotNone(spectrum)
-#         self.assertIsNotNone(data)
+    def test_get_spectrum(self):
+        """Test retrieving spectrum data at a specific location."""
+        x_range, data = self.afm.get_spectrum(location=(0.5, 0.5), channel=None)
+        self.assertIsNotNone(x_range)
+        self.assertEqual(x_range.shape, (198,))
+        self.assertIsNotNone(data)
+        self.assertEqual(data.shape, (8,198))
 #
-#     def test_process_dataset(self):
-#         """Test if dataset processing correctly identifies image indices and extracts scan array."""
-#         self.afm.process_dataset(self.afm.dataset)
-#         self.assertIn("image_channel", self.afm._im_ind)
-#         self.assertIsInstance(self.afm.scan_ar, np.ndarray)
-#
+    def test_process_dataset(self):
+        """Test if dataset processing correctly identifies image indices and extracts scan array."""
+        self.afm.process_dataset(self.afm.dataset)
+        self.assertIn("Channel_000", self.afm._im_ind)
+        self.assertIn("Channel_006", self.afm._pc_ind)
+        self.assertIsInstance(self.afm.scan_ar, np.ndarray)
+        self.assertEqual( self.afm.get_dataset_info(), dataset_info_list)
+
 if __name__ == '__main__':
     unittest.main()
 #
