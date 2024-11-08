@@ -58,5 +58,9 @@ example:
 
 ##### Recomended tasks on the data: feature finding, denoising, drift computation (for time series data)
 
-A few examples:
-...
+Few examples:
+<p float="left">
+  <img src="../../assets/MoS2_4.png" alt="alt text" width="45%" />
+  <img src="../../assets/MoS2_kmr_doped.png" alt="alt text" width="45%" />
+
+</p>
