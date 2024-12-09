@@ -1,12 +1,16 @@
 from DTMicroscope.base.microscope import BaseMicroscope
 import SciFiReaders
 import pyTEMlib
+from pyTEMlib import probe_tools
 
 
 import pdb
 import gdown
 import os
 import sidpy as sid
+from skimage.draw import disk
+from random import randint
+import random
 
 # the Autoscript packages --- waiting for Utkarsh
 # from autoscript_tem_microscope_client import TemMicroscopeClient
@@ -18,7 +22,9 @@ import sidpy as sid
 import os, time, sys, math, io
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 
+from skimage.draw import random_shapes
 
 # The DTSTEM and RealSTEM classes should be interchangeable in the notebooks
 # Also, we should inherit the BaseMicroscope class eventually, but I'm not sure how compatible the methods are
@@ -35,25 +41,61 @@ class DTSTEM():
             raise ValueError('Invalid data_mode. Please choose "simulation" or "preloaded"')
 
 
-        aberration_dict = None
-        probe = self.make_probe()
+        self.microscope_name = 'Spectra300'
+
 
         self.optics={'mode': 'STEM', # or TEM in the future'aberrations': None,
                      'accelerating_voltage': 200e3, # V
                      'convergence_angle': 30, # mrad
                      'beam_current': 100, # pA
                      'fov': None,
-                     'aberrations' : aberration_dict,
-                     'probe': None}
+                     'aberrations' : None,
+                     'probe': None,
+                     'ronchigram': None}
         
+        self.initialize_aberrations()
+        self.initialize_probe()
+        self.initialize_ronchigram()
+
+
         self.detectors={'haadf': {'inserted': False},
-                        'camera': {'inserted': False},
                         'maadf': {'inserted': False},
                         'bf': {'inserted': False},
+                        'camera': {'inserted': False},
                         'flucamera': {'inserted': False,
                                       'screen_current': None,
                                       'exposure_time': None}}
         
+    # Initialization functions ---------------------------------------------------------------------------------------------
+    def initialize_aberrations(self):
+        self.aberrations = probe_tools.get_target_aberrations(self.microscope_name, self.optics['accelerating_voltage'])
+        self.aberrations['reciprocal_FOV'] = reciprocal_FOV = 150*1e-3
+        self.fov = 1/self.aberrations['reciprocal_FOV']
+        self.aberrations['extent'] = [-reciprocal_FOV*1000,reciprocal_FOV*1000,-reciprocal_FOV*1000,reciprocal_FOV*1000]
+        self.aberrations['size'] = 512
+        self.aberrations['wavelength'] = probe_tools.get_wavelength(self.optics['accelerating_voltage'])
+        return
+
+    def initialize_probe(self):
+        sizeX = 512*2
+        probe_FOV  = 20
+        self.aberrations['Cc'] = 1
+        self.aberrations['C10'] = 0
+
+        ronchi_FOV = 350 #mrad
+        condensor_aperture_radius =  30  # mrad
+        ronchi_condensor_aperture_radius = 30  # mrad
+        self.aberrations['FOV'] = probe_FOV
+        self.aberrations['convergence_angle'] = condensor_aperture_radius
+        probe, A_k, chi  = pyTEMlib.probe_tools.get_probe(self.aberrations, sizeX, sizeX,  scale = 'mrad', verbose= True)
+        self.optics['probe']= probe
+        return
+
+    def initialize_ronchigram(self):
+        self.aberrations['ronchigram'] = probe_tools.get_ronchigram(1024, self.aberrations, scale = 'mrad')
+        return
+    # ---------------------------------------------------------------------------------------------------------------------
+
 
     def connect(self, ip, port):
         print('Connected to Digital Twin')
@@ -63,47 +105,56 @@ class DTSTEM():
         self.optics['fov'] = fov
         return self.optics['fov']
 
-    def get_scanned_image(self, size, dwell_time, detector='haadf'):
-        if data_mode == 'preloaded':
+    def get_scanned_image(self, size, dwell_time, detector='haadf', seed = None):
+        if self.data_mode == 'preloaded':
             return self.haadf_image
 
-        elif data_mode == 'simulation':
-            probe = self.optics['probe']
+        elif self.data_mode == 'simulation':
 
-            if self.fov is None:
+            if self.optics['fov'] is None:
                 raise ValueError('Field of view not set, run microscope.set_field_of_view()')
-            
 
-            probe = self.probe
-
-            if self.fov < 100: # Angstroms, arbitrary for now
+            if self.optics['fov'] < 100: # Angstroms, arbitrary for now
                 # simulate atomic resolution WS2
+                pass
+
+            elif self.optics['fov'] > 100: # Angstroms, arbitrary for now
+                number_of_electrons = 100 * dwell_time # approximation here ***** Gerd
+
+                # Parameters
+                random.seed(seed)
+                size = 512  # Size of the image
+                num_circles = randint(20, 25)  # Number of circles
+                max_radius, min_radius = int(size * 0.15), int(size * 0.05)
+
+                # Initialize the image
+                image = np.zeros((size, size), dtype=np.float32)
+
+                # Generate random circles
+                rng = np.random.default_rng(seed=seed)
+                for _ in range(num_circles):
+                    radius = rng.integers(min_radius, max_radius)
+                    center_x = rng.integers(radius, size - radius)
+                    center_y = rng.integers(radius, size - radius)
+                    rr, cc = disk((center_x, center_y), radius, shape=image.shape)
+                    image[rr, cc] += number_of_electrons  # Add intensity for each circle
+
+                # Add noise
+                noise = np.random.poisson(image)
+                image += noise
+                image += np.random.random(image.shape) * noise.max()
 
 
-            elif self.fov > 1000: # Angstroms, arbitrary for now
-                # simulate blobs
+                # Multiply by the probe
+                image = scipy.signal.fftconvolve(image, self.optics['probe'], mode='same')
 
+                return image
 
             else:
                 raise ValueError('Field of view should be < 100 or > 1000 Angstroms')
 
 
-        
-    def make_probe(self):
-        abbs = self.optics['aberrations']
-        # here we make the probe w gerd's notebook
 
-        return 
-
-    def set_aberrations(self, aberrations):
-        if aberrations is not None:
-            self.aberrations = aberrations
-        else:
-            self.aberrations = {'C10': np.random.rand(), # defocus
-                                'C12': np.random.rand(), # 2-fold astigmatism
-                                'C21': np.random.rand(), # 3-fold astigmatism
-                                'C23': np.random.rand(), # coma
-                                }
 
 # Watining for Utkarsh
 # class RealSTEM():
