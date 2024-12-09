@@ -1,23 +1,23 @@
 from DTMicroscope.base.microscope import BaseMicroscope
 import SciFiReaders
-import numpy as np
+import pyTEMlib
+
 
 import pdb
 import gdown
 import os
 import sidpy as sid
 
-# the Autoscript packages
-from autoscript_tem_microscope_client import TemMicroscopeClient
-from autoscript_tem_microscope_client.enumerations import *
-from autoscript_tem_microscope_client.structures import *
-import Pyro5.api
+# the Autoscript packages --- waiting for Utkarsh
+# from autoscript_tem_microscope_client import TemMicroscopeClient
+# from autoscript_tem_microscope_client.enumerations import *
+# from autoscript_tem_microscope_client.structures import *
+# import Pyro5.api
 
 # General packages
 import os, time, sys, math, io
 import matplotlib.pyplot as plt
 import numpy as np
-import cv2 as cv
 
 
 # The DTSTEM and RealSTEM classes should be interchangeable in the notebooks
@@ -34,42 +34,66 @@ class DTSTEM():
         else:
             raise ValueError('Invalid data_mode. Please choose "simulation" or "preloaded"')
 
-        self.optics={'aberrations': None,
-                     'convergence_angle': None,
-                     'mode': None,
-                     'fov': None,
-                     'accelerating_voltage': None
-                     'beam_current': None,}
-        
 
+        aberration_dict = None
+        probe = self.make_probe()
+
+        self.optics={'mode': 'STEM', # or TEM in the future'aberrations': None,
+                     'accelerating_voltage': 200e3, # V
+                     'convergence_angle': 30, # mrad
+                     'beam_current': 100, # pA
+                     'fov': None,
+                     'aberrations' : aberration_dict,
+                     'probe': None}
+        
         self.detectors={'haadf': {'inserted': False},
                         'camera': {'inserted': False},
                         'maadf': {'inserted': False},
                         'bf': {'inserted': False},
                         'flucamera': {'inserted': False,
                                       'screen_current': None,
-                                      'exposure_time': None},}
+                                      'exposure_time': None}}
         
-
+#
+    #
     def connect(self, ip, port):
-        print('Connected to DTSTEM')
+        print('Connected to Digital Twin')
         return
     
     def set_field_of_view(self, fov):
         self.optics['fov'] = fov
         return self.optics['fov']
 
-    def get_scanned_image(self, size, dwell_time):
-        # add a poisson noise module too
-        if self.aberrations is None:
+    def get_scanned_image(self, size, dwell_time, detector='haadf'):
+        if data_mode == 'preloaded':
             return self.haadf_image
-        else:
-            probe = self.microscope.get_probe()
-            return probe * self.haadf_image
+
+        elif data_mode == 'simulation':
+            probe = self.optics['probe']
+
+            if self.fov is None:
+                raise ValueError('Field of view not set, run microscope.set_field_of_view()')
+            
+
+            probe = self.probe
+
+            if self.fov < 100: # Angstroms, arbitrary for now
+                # simulate atomic resolution WS2
+
+
+            elif self.fov > 1000: # Angstroms, arbitrary for now
+                # simulate blobs
+
+
+            else:
+                raise ValueError('Field of view should be < 100 or > 1000 Angstroms')
+
+
         
-    def get_probe(self):
-        abbs = self.aberrations
+    def make_probe(self):
+        abbs = self.optics['aberrations']
         # here we make the probe w gerd's notebook
+
         return 
 
     def set_aberrations(self, aberrations):
@@ -82,27 +106,27 @@ class DTSTEM():
                                 'C23': np.random.rand(), # coma
                                 }
 
-
-class RealSTEM():
-    def __init__(self):
-        self.microscope = TemMicroscopeClient()
-
-    def connect(self, ip, port):
-        self.microscope.connect(ip, port)
-
-    def load_data(self, dataset):
-        print("This function is not needed for the RealSTEM object")
-
-    def get_haadf(size, dwell_time):
-        image = microscope.acquisition.acquire_stem_image(DetectorType.HAADF, size, dwell_time)
-        return image
-
-    def get_probe(self):
-        print("This function is not needed for the RealSTEM object")
-
-    def set_aberrations(self, aberrations):
-        # implement the button presser here
-        print("This function is not needed for the RealSTEM object")
+# Watining for Utkarsh
+# class RealSTEM():
+#     def __init__(self):
+#         self.microscope = TemMicroscopeClient()
+# 
+#     def connect(self, ip, port):
+#         self.microscope.connect(ip, port)
+# 
+#     def load_data(self, dataset):
+#         print("This function is not needed for the RealSTEM object")
+# 
+#     def get_haadf(size, dwell_time):
+#         image = microscope.acquisition.acquire_stem_image(DetectorType.HAADF, size, dwell_time)
+#         return image
+# 
+#     def get_probe(self):
+#         print("This function is not needed for the RealSTEM object")
+# 
+#     def set_aberrations(self, aberrations):
+#         # implement the button presser here
+#         print("This function is not needed for the RealSTEM object")
 
 
 
