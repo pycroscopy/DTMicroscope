@@ -7,9 +7,107 @@ import gdown
 import os
 import sidpy as sid
 
-# Extracted file ID from the provided URL
-import matplotlib.pyplot as plt
+# the Autoscript packages
+from autoscript_tem_microscope_client import TemMicroscopeClient
+from autoscript_tem_microscope_client.enumerations import *
+from autoscript_tem_microscope_client.structures import *
+import Pyro5.api
 
+# General packages
+import os, time, sys, math, io
+import matplotlib.pyplot as plt
+import numpy as np
+import cv2 as cv
+
+
+# The DTSTEM and RealSTEM classes should be interchangeable in the notebooks
+# Also, we should inherit the BaseMicroscope class eventually, but I'm not sure how compatible the methods are
+# Or we should delete the BaseMicroscope class, it doesn't seem to do much at the moment - AH
+
+
+class DTSTEM():
+    def __init__(self, data_mode):
+        if data_mode.lower() == 'simulation':
+            self.data_mode = 'simulation'
+        elif data_mode.lower() == 'preloaded':
+            self.data_mode = 'preloaded'
+        else:
+            raise ValueError('Invalid data_mode. Please choose "simulation" or "preloaded"')
+
+        self.optics={'aberrations': None,
+                     'convergence_angle': None,
+                     'mode': None,
+                     'fov': None,
+                     'accelerating_voltage': None
+                     'beam_current': None,}
+        
+
+        self.detectors={'haadf': {'inserted': False},
+                        'camera': {'inserted': False},
+                        'maadf': {'inserted': False},
+                        'bf': {'inserted': False},
+                        'flucamera': {'inserted': False,
+                                      'screen_current': None,
+                                      'exposure_time': None},}
+        
+
+    def connect(self, ip, port):
+        print('Connected to DTSTEM')
+        return
+    
+    def set_field_of_view(self, fov):
+        self.optics['fov'] = fov
+        return self.optics['fov']
+
+    def get_scanned_image(self, size, dwell_time):
+        # add a poisson noise module too
+        if self.aberrations is None:
+            return self.haadf_image
+        else:
+            probe = self.microscope.get_probe()
+            return probe * self.haadf_image
+        
+    def get_probe(self):
+        abbs = self.aberrations
+        # here we make the probe w gerd's notebook
+        return 
+
+    def set_aberrations(self, aberrations):
+        if aberrations is not None:
+            self.aberrations = aberrations
+        else:
+            self.aberrations = {'C10': np.random.rand(), # defocus
+                                'C12': np.random.rand(), # 2-fold astigmatism
+                                'C21': np.random.rand(), # 3-fold astigmatism
+                                'C23': np.random.rand(), # coma
+                                }
+
+
+class RealSTEM():
+    def __init__(self):
+        self.microscope = TemMicroscopeClient()
+
+    def connect(self, ip, port):
+        self.microscope.connect(ip, port)
+
+    def load_data(self, dataset):
+        print("This function is not needed for the RealSTEM object")
+
+    def get_haadf(size, dwell_time):
+        image = microscope.acquisition.acquire_stem_image(DetectorType.HAADF, size, dwell_time)
+        return image
+
+    def get_probe(self):
+        print("This function is not needed for the RealSTEM object")
+
+    def set_aberrations(self, aberrations):
+        # implement the button presser here
+        print("This function is not needed for the RealSTEM object")
+
+
+
+
+# Deprecated code
 class STEM(BaseMicroscope):
     def __init__(self):
         super().__init__()
@@ -161,17 +259,5 @@ class STEM(BaseMicroscope):
     
     
     
-    # add get spectrum at specific location
-    
-if __name__== "__main__":
-    mic = STEM()
-    mic._load_dataset("data/test_stem.h5")
-    mic._parse_dataset()
-    info_list = mic.get_dataset_info()
-    print(info_list)
-    ov_img = mic.get_overview_image(channel_key="Channel_000")
-    plt.imshow(ov_img)
-    plt.show()
 
-    #print(mic.get_overview_image())
     
