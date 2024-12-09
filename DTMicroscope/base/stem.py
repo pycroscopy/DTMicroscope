@@ -120,30 +120,15 @@ class DTSTEM():
 
             elif self.optics['fov'] > 100: # Angstroms, arbitrary for now
                 number_of_electrons = 100 * dwell_time # approximation here ***** Gerd
+                size = 512
 
-                # Parameters
-                random.seed(seed)
-                size = 512  # Size of the image
-                num_circles = randint(20, 25)  # Number of circles
-                max_radius, min_radius = int(size * 0.15), int(size * 0.05)
-
-                # Initialize the image
-                image = np.zeros((size, size), dtype=np.float32)
-
-                # Generate random circles
-                rng = np.random.default_rng(seed=seed)
-                for _ in range(num_circles):
-                    radius = rng.integers(min_radius, max_radius)
-                    center_x = rng.integers(radius, size - radius)
-                    center_y = rng.integers(radius, size - radius)
-                    rr, cc = disk((center_x, center_y), radius, shape=image.shape)
-                    image[rr, cc] += number_of_electrons  # Add intensity for each circle
-
-                # Add noise
+                image, _ = random_shapes((size, size), min_shapes=15, max_shapes=30, shape='circle',
+                            min_size=size*0.1, max_size = size*0.3, allow_overlap=False, num_channels=1, rng=seed)
+                image = 1-np.squeeze(image)/image.max()
+                image[image<.1] = 0
+                image[image>0] = number_of_electrons
                 noise = np.random.poisson(image)
-                image += noise
-                image += np.random.random(image.shape) * noise.max()
-
+                image = image+noise+np.random.random(image.shape)*noise.max()
 
                 # Multiply by the probe
                 image = scipy.signal.fftconvolve(image, self.optics['probe'], mode='same')
@@ -152,7 +137,6 @@ class DTSTEM():
 
             else:
                 raise ValueError('Field of view should be < 100 or > 1000 Angstroms')
-
 
 
 
