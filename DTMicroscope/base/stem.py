@@ -54,8 +54,7 @@ class DTSTEM():
                                       'screen_current': None,
                                       'exposure_time': None}}
         
-#
-    #
+
     def connect(self, ip, port):
         print('Connected to Digital Twin')
         return
