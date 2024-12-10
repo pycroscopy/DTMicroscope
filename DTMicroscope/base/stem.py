@@ -79,8 +79,8 @@ class DTSTEM():
     def initialize_probe(self):
         sizeX = 512*2
         probe_FOV  = 20
-        self.aberrations['Cc'] = 1
-        self.aberrations['C10'] = 0
+        # self.aberrations['Cc'] = 1
+        # self.aberrations['C10'] = 0
 
         ronchi_FOV = 350 #mrad
         condensor_aperture_radius =  30  # mrad
@@ -110,6 +110,8 @@ class DTSTEM():
             return self.haadf_image
 
         elif self.data_mode == 'simulation':
+            self.initialize_probe()
+            self.initialize_ronchigram()
 
             if self.optics['fov'] is None:
                 raise ValueError('Field of view not set, run microscope.set_field_of_view()')
@@ -122,8 +124,8 @@ class DTSTEM():
                 number_of_electrons = 100 * dwell_time # approximation here ***** Gerd
                 size = 512
 
-                image, _ = random_shapes((size, size), min_shapes=15, max_shapes=30, shape='circle',
-                            min_size=size*0.1, max_size = size*0.3, allow_overlap=False, num_channels=1, rng=seed)
+                image, _ = random_shapes((size, size), min_shapes=20, max_shapes=35, shape='circle',
+                            min_size=size*0.1, max_size = size*0.2, allow_overlap=False, num_channels=1, rng=seed)
                 image = 1-np.squeeze(image)/image.max()
                 image[image<.1] = 0
                 image[image>0] = number_of_electrons
