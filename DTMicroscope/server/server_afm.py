@@ -1,18 +1,15 @@
 import numpy as np
 import Pyro5.api
-import sys
 
 # from DTMicroscope.base.dummy_mic import DummyMicroscope
 # from microscope.afm import AFMMicroscope
 # from DTMicroscope.base.stem import STEM
 from DTMicroscope.base.afm import AFM_Microscope
-import sidpy
 ## we can download all the data the moment server starts
 # import gdown
 # file_id = "1V9YPIRi4OLMBagXxT9s9Se4UJ-8oF3_q"# 
 # direct_url = f"https://drive.google.com/uc?id={file_id}"
 # gdown.download(direct_url, "test.h5", quiet=False)
-from DTMicroscope.base.afm_artefacts import real_tip, tip_doubling
 
 def serialize_array(array):
     """
