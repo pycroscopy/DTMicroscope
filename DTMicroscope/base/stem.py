@@ -192,6 +192,7 @@ class STEM(BaseMicroscope):
 # The DTSTEM and RealSTEM classes should be interchangeable in the notebooks
 class DTSTEM(BaseMicroscope):
     def __init__(self, data_mode):
+        super().__init__()
         if data_mode.lower() == 'simulation':
             self.data_mode = 'simulation'
         elif data_mode.lower() == 'preloaded':
