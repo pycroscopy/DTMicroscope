@@ -1,6 +1,4 @@
-import numpy as np
 import Pyro5.api
-import sys
 
 from DTMicroscope.base.dummy_mic import DummyMicroscope
 # from microscope.afm import AFMMicroscope
