@@ -3,38 +3,18 @@ import SciFiReaders
 import pyTEMlib
 from pyTEMlib import probe_tools
 
-import pdb
-import gdown
-import os
 import sidpy as sid
-from skimage.draw import disk
-from random import randint
-import random
 
 from ase import build 
 
 # General packages
-import os, time, sys, math, io
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
 from skimage.draw import random_shapes
-from ase import build 
-from scipy.ndimage import gaussian_filter
-
-
-from DTMicroscope.base.microscope import BaseMicroscope
-import SciFiReaders
-import numpy as np
-
-import pdb
-import gdown
-import os
-import sidpy as sid
 
 # Extracted file ID from the provided URL
-import matplotlib.pyplot as plt
 
 class STEM(BaseMicroscope):
     def __init__(self):
