@@ -1,6 +1,4 @@
 
-import matplotlib.pylab as plt
-import numpy as np
 import Pyro5.api
 
 
