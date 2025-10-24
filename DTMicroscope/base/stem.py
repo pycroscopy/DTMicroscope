@@ -163,6 +163,9 @@ from skimage.draw import random_shapes
 #     def get_acceleration_voltage(self):
 #         return 
         
+class base_microscopy_proxty():
+    # base framework, what a microscope should provide
+
 
 # The DTSTEM and smart_proxy classes should be interchangeable in the notebooks
 class DTSTEM_proxy(BaseMicroscope):
