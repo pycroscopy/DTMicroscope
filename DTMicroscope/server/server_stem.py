@@ -100,7 +100,7 @@ class MicroscopeServer(object):
         return serialize_array(data)
 
     
-    
+
 def main_server():
     host = "0.0.0.0"
     daemon = Pyro5.api.Daemon( port=9091)   #9092=AFM, 9091 = STEM
