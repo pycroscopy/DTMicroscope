@@ -2,12 +2,14 @@
 
 import sys
 import os
+import time
 
 import json
 import socket
 
 import numpy as np
 import Pyro5.api
+
 
 
 sys.path.insert(0, "C:\\AE_future\\autoscript_1_14\\")
@@ -121,6 +123,7 @@ class MicroscopeServer(object):
     def __init__(self):
         print('init')
         self.detectors  = {}
+        self.log = {time.time(): "Server started"}
 
         self.microscope = None
         self.available_parameters = []
@@ -134,6 +137,7 @@ class MicroscopeServer(object):
     @Pyro5.api.expose
     def align_microscope(self, device, order, **args):
         """Align the microscope"""
+        
         print(f"Aligning microscope with {device} for {order} order")
         return 1
 
@@ -216,6 +220,7 @@ class MicroscopeServer(object):
         else:
             print(f"Device {device} not found")
             return None
+        
     @Pyro5.api.expose
     def set_beam_position(self, x, y):
         """Set the beam position in nm"""
@@ -240,15 +245,6 @@ class MicroscopeServer(object):
         return array_list, array.shape,  dtype
 
 
-    def get_vacuum(self):
-        """Get the current vacuum level in Pa"""
-        return 1e-5
-    
-    def aberration_correction(self, order, **args):
-        """Perform aberration correction"""
-        print(f"Performing aberration correction of order {order}")
-        return 1
-
     @Pyro5.api.expose
     def close(self):
         """Close the server"""
@@ -269,10 +265,7 @@ class TEMServer(MicroscopeServer):
         self.microscope = auto_script.TemMicroscopeClient()
         self.connect_to_as()
         print('initialized')
-        self.ceos = 
-
         self.ab_corrector = None
-        self.connect_to_ceos()
         
     def connect_to_as(self):
         ip = "127.0.0.1"
@@ -395,7 +388,11 @@ class TEMServer(MicroscopeServer):
 
     def get_microscope_status(self):
         """Get the current microscope status"""
-        return "Idle"
+        print("microscope vacumm is:",self.microscope.vacuum.state)
+        print("column valve is: ", self.microscope.vacuum.column_valves.state)
+        out_dict = {'vaccuum': self.microscope.vacuum.state,
+                    'column_valve': self.microscope.vacuum.column_valves.state}
+        return out_dict
     
     def aberration_correction(self, order, **args):
         """Perform aberration correction"""
@@ -403,8 +400,9 @@ class TEMServer(MicroscopeServer):
         return 1
 
     def close(self):
-        """Close the server"""
-        print("Closing server")
+        """Close the column valves and the server"""
+        self.microscope.vacuum.column_valves.close()
+        print("Closing valve")
         return 1
     
 
