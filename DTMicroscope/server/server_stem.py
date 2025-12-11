@@ -1,6 +1,4 @@
-import numpy as np
 import Pyro5.api
-import sys
 
 from DTMicroscope.base.dummy_mic import DummyMicroscope
 # from microscope.afm import AFMMicroscope
@@ -102,7 +100,7 @@ class MicroscopeServer(object):
         return serialize_array(data)
 
     
-    
+
 def main_server():
     host = "0.0.0.0"
     daemon = Pyro5.api.Daemon( port=9091)   #9092=AFM, 9091 = STEM
