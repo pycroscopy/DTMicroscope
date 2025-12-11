@@ -200,8 +200,8 @@ class AFM_Microscope(BaseMicroscope):
             self.y_coords =  np.linspace(0,1,self.dataset[first_im_ind].shape[1])
         
 
-        self.x_min, self.x_max = self.x_coords.min(), self.x_coords.max()
-        self.y_min, self.y_max = self.y_coords.min(), self.y_coords.max()
+        self.x_min, self.x_max = float(self.x_coords.min()), float(self.x_coords.max())
+        self.y_min, self.y_max = float(self.y_coords.min()), float(self.y_coords.max())
 
         #place tip in the center of scan
         self.x = self.x_coords[len(self.x_coords)//2]
