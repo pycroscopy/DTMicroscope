@@ -199,12 +199,12 @@ class AFM_Microscope(BaseMicroscope):
             self.y_coords =  np.linspace(0,1,self.dataset[first_im_ind].shape[1])
         
 
-        self.x_min, self.x_max = self.x_coords.min(), self.x_coords.max()
-        self.y_min, self.y_max = self.y_coords.min(), self.y_coords.max()
+        self._x_min, self._x_max = float(self.x_coords.min()), float(self.x_coords.max())
+        self._y_min, self._y_max = float(self.y_coords.min()), float(self.y_coords.max())
 
         #place tip in the center of scan
-        self.x = self.x_coords[len(self.x_coords)//2]
-        self.y = self.y_coords[len(self.y_coords)//2]
+        self._x = float(self.x_coords[len(self.x_coords)//2])
+        self._y = float(self.y_coords[len(self.y_coords)//2])
         print('finished processing dataset')
 
 
@@ -346,12 +346,12 @@ class AFM_Microscope(BaseMicroscope):
         # Check x-coordinate
         if x < self.x_coords.min() or x > self.x_coords.max():
             print(f"Warning: x-coordinate {x} is out of range. Clamping to valid range.")
-        self.x = max(self.x_coords.min(), min(x, self.x_coords.max()))
+        self._x = max(self.x_coords.min(), min(x, self.x_coords.max()))
 
         # Check y-coordinate
         if y < self.y_coords.min() or y > self.y_coords.max():
             print(f"Warning: y-coordinate {y} is out of range. Clamping to valid range.")
-        self.y = max(self.y_coords.min(), min(y, self.y_coords.max()))
+        self._y = max(self.y_coords.min(), min(y, self.y_coords.max()))
         return True
 
     def scan_individual_line(self, direction='horizontal', trace = 'forward', coord=0, channels=None,
@@ -437,7 +437,7 @@ class AFM_Microscope(BaseMicroscope):
         _scan_ar = self.get_scan(channels=channels)
 
         # Correct out-of-range coordinates using vectorized clipping
-        corrected_path_points = np.clip(path_points, [self.x_min, self.y_min], [self.x_max, self.y_max])
+        corrected_path_points = np.clip(path_points, [self._x_min, self._y_min], [self._x_max, self._y_max])
 
         # Convert corrected real-world coordinates to pixel coordinates
         pixel_coords = self._real_to_pixel(corrected_path_points)
@@ -511,7 +511,7 @@ class AFM_Microscope(BaseMicroscope):
         """
          # Use the current (x, y) location if no location is provided
         if location is None:
-            location = (self.x, self.y)
+            location = (self._x, self._y)
 
         # Check if point cloud data is available
         if len(self._pc_ind)>0:
@@ -630,3 +630,27 @@ class AFM_Microscope(BaseMicroscope):
                 y0 += sy
 
         return np.array(path)
+    
+    @property
+    def x_min(self):
+        return float(self._x_min)
+
+    @property
+    def x_max(self):
+        return float(self._x_max)
+
+    @property
+    def y_min(self):
+        return float(self._y_min)
+
+    @property
+    def y_max(self):
+        return float(self._y_max)
+    
+    @property
+    def y(self):
+        return float(self._y)
+
+    @property
+    def x(self):
+        return float(self._x)
