@@ -343,6 +343,8 @@ class AFM_Microscope(BaseMicroscope):
             x (float): The desired x-coordinate.
             y (float): The desired y-coordinate.
         """
+        x = float(x)
+        y = float(y)
         # Check x-coordinate
         if x < self.x_coords.min() or x > self.x_coords.max():
             print(f"Warning: x-coordinate {x} is out of range. Clamping to valid range.")
