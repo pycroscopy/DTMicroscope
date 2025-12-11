@@ -204,8 +204,8 @@ class AFM_Microscope(BaseMicroscope):
         self.y_min, self.y_max = float(self.y_coords.min()), float(self.y_coords.max())
 
         #place tip in the center of scan
-        self.x = self.x_coords[len(self.x_coords)//2]
-        self.y = self.y_coords[len(self.y_coords)//2]
+        self.x = float(self.x_coords[len(self.x_coords)//2])
+        self.y = float(self.y_coords[len(self.y_coords)//2])
         print('finished processing dataset')
 
 
